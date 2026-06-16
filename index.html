@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ÁgilBank — Crédito Rápido e Seguro</title>
+  <meta name="description" content="ÁgilBank: empréstimos rápidos para quem não tem crédito na praça. Cadastre-se, solicite e receba hoje mesmo." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TELA DE LOGIN / LANDING
+════════════════════════════════════════════════════════════ -->
+<div id="screen-login" class="screen active">
+  <div class="login-bg">
+    <div class="login-particles" id="particles"></div>
+    <div class="login-card">
+      <div class="brand-logo">
+        <div class="rhino-icon">🦏</div>
+        <div class="brand-text">
+          <span class="brand-agil">ágil</span><span class="brand-bank">bank</span>
+        </div>
+        <p class="brand-slogan">FORÇA QUE IMPULSIONA O QUE IMPORTA</p>
+      </div>
+
+      <div class="login-tabs">
+        <button class="tab-btn active" onclick="switchLoginTab('client')" id="tab-client">Cliente</button>
+        <button class="tab-btn" onclick="switchLoginTab('admin')" id="tab-admin">Admin</button>
+      </div>
+
+      <div id="login-client" class="login-form active">
+        <h2>Bem-vindo de volta!</h2>
+        <p class="login-sub">Acesse sua conta ou crie uma nova</p>
+        <div class="input-group">
+          <label>CPF ou E-mail</label>
+          <input type="text" id="cl-login-user" placeholder="000.000.000-00" />
+        </div>
+        <div class="input-group">
+          <label>Senha</label>
+          <input type="password" id="cl-login-pass" placeholder="••••••••" />
+        </div>
+        <button class="btn-primary full" onclick="loginClient()">Entrar</button>
+        <div class="divider"><span>ou</span></div>
+        <button class="btn-outline full" onclick="goTo('screen-register')">Criar Conta Grátis</button>
+      </div>
+
+      <div id="login-admin" class="login-form">
+        <h2>Painel Administrativo</h2>
+        <p class="login-sub">Acesso restrito a administradores</p>
+        <div class="input-group">
+          <label>Usuário Admin</label>
+          <input type="text" id="adm-login-user" placeholder="admin" />
+        </div>
+        <div class="input-group">
+          <label>Senha</label>
+          <input type="password" id="adm-login-pass" placeholder="••••••••" />
+        </div>
+        <button class="btn-primary full" onclick="loginAdmin()">Acessar Painel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TELA DE CADASTRO
+════════════════════════════════════════════════════════════ -->
+<div id="screen-register" class="screen">
+  <div class="register-bg">
+    <div class="register-header">
+      <button class="back-btn" onclick="goTo('screen-login')">← Voltar</button>
+      <div class="brand-mini">
+        <span class="brand-agil">ágil</span><span class="brand-bank">bank</span>
+      </div>
+    </div>
+    <div class="register-container">
+      <div class="register-hero">
+        <h1>Crédito para quem<br/><span class="highlight">precisa de uma chance</span></h1>
+        <p>Cadastro simples, sem burocracia. Sem consulta ao SPC/Serasa.</p>
+        <div class="benefits">
+          <div class="benefit-item"><span class="b-icon">✅</span> Aprovação em minutos</div>
+          <div class="benefit-item"><span class="b-icon">✅</span> Sem consulta de crédito</div>
+          <div class="benefit-item"><span class="b-icon">✅</span> 100% Online</div>
+          <div class="benefit-item"><span class="b-icon">✅</span> Avisos por SMS</div>
+        </div>
+      </div>
+      <div class="register-form-card">
+        <div class="step-indicator">
+          <div class="step active" id="step-dot-1">1</div>
+          <div class="step-line"></div>
+          <div class="step" id="step-dot-2">2</div>
+          <div class="step-line"></div>
+          <div class="step" id="step-dot-3">3</div>
+        </div>
+
+        <!-- Step 1: Dados Pessoais -->
+        <div class="reg-step" id="reg-step-1">
+          <h3>Dados Pessoais</h3>
+          <div class="form-grid">
+            <div class="input-group full-width">
+              <label>Nome Completo *</label>
+              <input type="text" id="reg-nome" placeholder="Seu nome completo" />
+            </div>
+            <div class="input-group">
+              <label>CPF *</label>
+              <input type="text" id="reg-cpf" placeholder="000.000.000-00" maxlength="14" oninput="maskCPF(this)" />
+            </div>
+            <div class="input-group">
+              <label>Data de Nascimento *</label>
+              <input type="date" id="reg-nasc" />
+            </div>
+            <div class="input-group">
+              <label>RG</label>
+              <input type="text" id="reg-rg" placeholder="00.000.000-0" />
+            </div>
+            <div class="input-group">
+              <label>Estado Civil</label>
+              <select id="reg-estado-civil">
+                <option value="">Selecione</option>
+                <option>Solteiro(a)</option>
+                <option>Casado(a)</option>
+                <option>Divorciado(a)</option>
+                <option>Viúvo(a)</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn-primary full" onclick="nextStep(2)">Próximo →</button>
+        </div>
+
+        <!-- Step 2: Contato & Endereço -->
+        <div class="reg-step hidden" id="reg-step-2">
+          <h3>Contato & Endereço</h3>
+          <div class="form-grid">
+            <div class="input-group">
+              <label>Telefone/WhatsApp *</label>
+              <input type="text" id="reg-tel" placeholder="(00) 00000-0000" maxlength="15" oninput="maskPhone(this)" />
+            </div>
+            <div class="input-group">
+              <label>E-mail *</label>
+              <input type="email" id="reg-email" placeholder="seu@email.com" />
+            </div>
+            <div class="input-group">
+              <label>CEP *</label>
+              <input type="text" id="reg-cep" placeholder="00000-000" maxlength="9" oninput="maskCEP(this)" onblur="buscaCEP()" />
+            </div>
+            <div class="input-group">
+              <label>Cidade *</label>
+              <input type="text" id="reg-cidade" placeholder="Sua cidade" />
+            </div>
+            <div class="input-group">
+              <label>Estado *</label>
+              <input type="text" id="reg-estado" placeholder="SP" maxlength="2" />
+            </div>
+            <div class="input-group full-width">
+              <label>Endereço Completo *</label>
+              <input type="text" id="reg-endereco" placeholder="Rua, número, complemento" />
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn-outline" onclick="nextStep(1)">← Voltar</button>
+            <button class="btn-primary" onclick="nextStep(3)">Próximo →</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Renda & Senha -->
+        <div class="reg-step hidden" id="reg-step-3">
+          <h3>Renda & Acesso</h3>
+          <div class="form-grid">
+            <div class="input-group">
+              <label>Situação de Emprego</label>
+              <select id="reg-emprego">
+                <option value="">Selecione</option>
+                <option>Empregado CLT</option>
+                <option>Autônomo / Freelancer</option>
+                <option>Microempreendedor (MEI)</option>
+                <option>Aposentado / Pensionista</option>
+                <option>Desempregado</option>
+                <option>Outro</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label>Local de Trabalho</label>
+              <input type="text" id="reg-trabalho" placeholder="Empresa (opcional)" />
+            </div>
+            <div class="input-group">
+              <label>Renda Mensal Aproximada</label>
+              <input type="text" id="reg-renda" placeholder="R$ 0,00" oninput="maskMoney(this)" />
+            </div>
+            <div class="input-group">
+              <label>Garantia (Opcional)</label>
+              <input type="text" id="reg-garantia" placeholder="Carro, moto, imóvel..." />
+            </div>
+            <div class="input-group full-width">
+              <label>Indicação (Quem te indicou?)</label>
+              <input type="text" id="reg-indicacao" placeholder="Nome da pessoa (opcional)" />
+            </div>
+            <div class="input-group">
+              <label>Senha *</label>
+              <input type="password" id="reg-senha" placeholder="Mínimo 6 caracteres" />
+            </div>
+            <div class="input-group">
+              <label>Confirmar Senha *</label>
+              <input type="password" id="reg-senha2" placeholder="Repita a senha" />
+            </div>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="reg-termos" />
+            <label for="reg-termos">Concordo com os <a href="#" class="link">Termos de Uso</a> e <a href="#" class="link">Política de Privacidade</a></label>
+          </div>
+          <div class="btn-row">
+            <button class="btn-outline" onclick="nextStep(2)">← Voltar</button>
+            <button class="btn-primary" onclick="registerClient()">Cadastrar ✓</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PORTAL DO CLIENTE
+════════════════════════════════════════════════════════════ -->
+<div id="screen-client" class="screen">
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar-client">
+      <div class="sidebar-brand">
+        <div class="rhino-icon-sm">🦏</div>
+        <div><span class="brand-agil">ágil</span><span class="brand-bank">bank</span></div>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item active" onclick="clientNav('dashboard')" id="cnav-dashboard">
+          <span class="nav-icon">📊</span> Dashboard
+        </a>
+        <a class="nav-item" onclick="clientNav('loan-request')" id="cnav-loan-request">
+          <span class="nav-icon">💰</span> Solicitar Empréstimo
+        </a>
+        <a class="nav-item" onclick="clientNav('my-loans')" id="cnav-my-loans">
+          <span class="nav-icon">📋</span> Meus Empréstimos
+        </a>
+        <a class="nav-item" onclick="clientNav('payments')" id="cnav-payments">
+          <span class="nav-icon">💳</span> Pagamentos
+        </a>
+        <a class="nav-item" onclick="clientNav('profile')" id="cnav-profile">
+          <span class="nav-icon">👤</span> Meu Perfil
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-card-mini" id="client-user-card"></div>
+        <button class="btn-logout" onclick="logout()">Sair</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content" id="client-main">
+
+      <!-- Dashboard -->
+      <section class="content-section" id="cl-dashboard">
+        <div class="page-header">
+          <div>
+            <h1 id="client-greeting">Olá! 👋</h1>
+            <p class="page-sub">Aqui está um resumo da sua conta</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn-primary sm" onclick="clientNav('loan-request')">+ Novo Empréstimo</button>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card green">
+            <div class="stat-icon">💵</div>
+            <div class="stat-info">
+              <div class="stat-label">Disponível para Empréstimo</div>
+              <div class="stat-value" id="cl-disponivel">R$ 5.000,00</div>
+            </div>
+          </div>
+          <div class="stat-card blue">
+            <div class="stat-icon">📈</div>
+            <div class="stat-info">
+              <div class="stat-label">Empréstimos Ativos</div>
+              <div class="stat-value" id="cl-ativos">0</div>
+            </div>
+          </div>
+          <div class="stat-card orange">
+            <div class="stat-icon">⏰</div>
+            <div class="stat-info">
+              <div class="stat-label">Próximo Vencimento</div>
+              <div class="stat-value" id="cl-vencimento">—</div>
+            </div>
+          </div>
+          <div class="stat-card red">
+            <div class="stat-icon">💸</div>
+            <div class="stat-info">
+              <div class="stat-label">Total Devendo</div>
+              <div class="stat-value" id="cl-total-devendo">R$ 0,00</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empréstimos ativos do cliente -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <h3>Meus Empréstimos Ativos</h3>
+          </div>
+          <div id="cl-loans-list" class="loans-list"></div>
+        </div>
+
+        <!-- Avisos / Notificações -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <h3>🔔 Avisos Importantes</h3>
+          </div>
+          <div id="cl-notices" class="notices-list"></div>
+        </div>
+      </section>
+
+      <!-- Solicitar Empréstimo -->
+      <section class="content-section hidden" id="cl-loan-request">
+        <div class="page-header">
+          <h1>💰 Solicitar Empréstimo</h1>
+          <p class="page-sub">Sem consulta ao SPC/Serasa</p>
+        </div>
+
+        <div class="loan-request-layout">
+          <div class="loan-form-card">
+            <h3>Configure seu empréstimo</h3>
+            <div class="input-group">
+              <label>Valor Desejado</label>
+              <input type="text" id="lr-valor" placeholder="R$ 0,00" oninput="maskMoney(this); updateLoanPreview()" />
+            </div>
+            <div class="input-group">
+              <label>Prazo de Pagamento</label>
+              <select id="lr-prazo" onchange="updateLoanPreview()">
+                <option value="1">1 mês</option>
+                <option value="2">2 meses</option>
+                <option value="3" selected>3 meses</option>
+                <option value="6">6 meses</option>
+                <option value="12">12 meses</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label>Motivo do Empréstimo</label>
+              <select id="lr-motivo">
+                <option value="">Selecione</option>
+                <option>Emergência médica</option>
+                <option>Pagamento de dívidas</option>
+                <option>Compra de equipamentos</option>
+                <option>Reforma/Melhorias</option>
+                <option>Capital de giro</option>
+                <option>Educação</option>
+                <option>Outro</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label>Descrição (opcional)</label>
+              <textarea id="lr-desc" placeholder="Descreva brevemente para que será usado o dinheiro..." rows="3"></textarea>
+            </div>
+
+            <div class="loan-preview" id="loan-preview">
+              <div class="preview-row">
+                <span>Valor solicitado</span>
+                <span id="prev-valor">R$ 0,00</span>
+              </div>
+              <div class="preview-row">
+                <span>Prazo</span>
+                <span id="prev-prazo">— meses</span>
+              </div>
+              <div class="preview-row note">
+                <span>⚠️ Juros serão definidos pelo administrador após análise</span>
+              </div>
+            </div>
+
+            <button class="btn-primary full" onclick="submitLoanRequest()">Enviar Solicitação 🚀</button>
+          </div>
+
+          <div class="loan-info-card">
+            <h3>Como Funciona?</h3>
+            <div class="steps-flow">
+              <div class="flow-step">
+                <div class="flow-num">1</div>
+                <div class="flow-info">
+                  <strong>Solicite</strong>
+                  <p>Informe o valor e prazo desejados</p>
+                </div>
+              </div>
+              <div class="flow-step">
+                <div class="flow-num">2</div>
+                <div class="flow-info">
+                  <strong>Análise</strong>
+                  <p>Nossa equipe analisa em até 24h</p>
+                </div>
+              </div>
+              <div class="flow-step">
+                <div class="flow-num">3</div>
+                <div class="flow-info">
+                  <strong>Aprovação</strong>
+                  <p>Você recebe SMS com a aprovação</p>
+                </div>
+              </div>
+              <div class="flow-step">
+                <div class="flow-num">4</div>
+                <div class="flow-info">
+                  <strong>Receba</strong>
+                  <p>Dinheiro na conta ou em espécie</p>
+                </div>
+              </div>
+            </div>
+            <div class="info-box">
+              <strong>🛡️ Seus Direitos</strong>
+              <ul>
+                <li>Taxa de juros informada antes da assinatura</li>
+                <li>Sem cobranças ocultas</li>
+                <li>Pagamento antecipado sem multa</li>
+                <li>Aviso 3 dias antes do vencimento</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Meus Empréstimos -->
+      <section class="content-section hidden" id="cl-my-loans">
+        <div class="page-header">
+          <h1>📋 Meus Empréstimos</h1>
+        </div>
+        <div id="cl-all-loans" class="loans-detail-list"></div>
+      </section>
+
+      <!-- Pagamentos -->
+      <section class="content-section hidden" id="cl-payments">
+        <div class="page-header">
+          <h1>💳 Pagamentos</h1>
+        </div>
+        <div id="cl-payments-list" class="payments-list"></div>
+      </section>
+
+      <!-- Perfil -->
+      <section class="content-section hidden" id="cl-profile">
+        <div class="page-header">
+          <h1>👤 Meu Perfil</h1>
+        </div>
+        <div class="profile-card" id="cl-profile-data"></div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAINEL ADMINISTRATIVO
+════════════════════════════════════════════════════════════ -->
+<div id="screen-admin" class="screen">
+  <div class="app-layout">
+    <!-- Admin Sidebar -->
+    <aside class="sidebar admin-sidebar" id="sidebar-admin">
+      <div class="sidebar-brand">
+        <div class="rhino-icon-sm">🦏</div>
+        <div>
+          <div><span class="brand-agil">ágil</span><span class="brand-bank">bank</span></div>
+          <small class="admin-badge">ADMIN</small>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item active" onclick="adminNav('overview')" id="anav-overview">
+          <span class="nav-icon">📊</span> Visão Geral
+        </a>
+        <a class="nav-item" onclick="adminNav('requests')" id="anav-requests">
+          <span class="nav-icon">🔔</span> Solicitações
+          <span class="badge" id="badge-requests">0</span>
+        </a>
+        <a class="nav-item" onclick="adminNav('loans')" id="anav-loans">
+          <span class="nav-icon">💰</span> Empréstimos
+        </a>
+        <a class="nav-item" onclick="adminNav('clients')" id="anav-clients">
+          <span class="nav-icon">👥</span> Clientes
+        </a>
+        <a class="nav-item" onclick="adminNav('sms')" id="anav-sms">
+          <span class="nav-icon">📱</span> Central SMS
+        </a>
+        <a class="nav-item" onclick="adminNav('settings')" id="anav-settings">
+          <span class="nav-icon">⚙️</span> Configurações
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-card-mini">👤 Administrador</div>
+        <button class="btn-logout" onclick="logout()">Sair</button>
+      </div>
+    </aside>
+
+    <!-- Admin Main -->
+    <main class="main-content" id="admin-main">
+
+      <!-- Visão Geral -->
+      <section class="content-section" id="adm-overview">
+        <div class="page-header">
+          <div>
+            <h1>📊 Visão Geral</h1>
+            <p class="page-sub" id="adm-date"></p>
+          </div>
+          <div class="header-actions">
+            <button class="btn-outline sm" onclick="exportReport()">📥 Exportar Relatório</button>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card green">
+            <div class="stat-icon">💵</div>
+            <div class="stat-info">
+              <div class="stat-label">Total Emprestado</div>
+              <div class="stat-value" id="adm-total-emprestado">R$ 0,00</div>
+            </div>
+          </div>
+          <div class="stat-card blue">
+            <div class="stat-icon">📥</div>
+            <div class="stat-info">
+              <div class="stat-label">A Receber (com juros)</div>
+              <div class="stat-value" id="adm-a-receber">R$ 0,00</div>
+            </div>
+          </div>
+          <div class="stat-card orange">
+            <div class="stat-icon">👥</div>
+            <div class="stat-info">
+              <div class="stat-label">Total de Clientes</div>
+              <div class="stat-value" id="adm-total-clientes">0</div>
+            </div>
+          </div>
+          <div class="stat-card red">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-info">
+              <div class="stat-label">Pagamentos Atrasados</div>
+              <div class="stat-value" id="adm-atrasados">0</div>
+            </div>
+          </div>
+          <div class="stat-card purple">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+              <div class="stat-label">Empréstimos Ativos</div>
+              <div class="stat-value" id="adm-emprestimos-ativos">0</div>
+            </div>
+          </div>
+          <div class="stat-card teal">
+            <div class="stat-icon">💹</div>
+            <div class="stat-info">
+              <div class="stat-label">Lucro em Juros</div>
+              <div class="stat-value" id="adm-lucro-juros">R$ 0,00</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Próximos vencimentos -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <h3>📅 Próximos Vencimentos (30 dias)</h3>
+            <button class="btn-outline sm" onclick="sendBulkSMS()">📱 Avisar Todos</button>
+          </div>
+          <div id="adm-vencimentos" class="vencimentos-list"></div>
+        </div>
+
+        <!-- Gráfico de performance -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <h3>📈 Performance do Mês</h3>
+          </div>
+          <div class="performance-bars" id="adm-performance"></div>
+        </div>
+      </section>
+
+      <!-- Solicitações Pendentes -->
+      <section class="content-section hidden" id="adm-requests">
+        <div class="page-header">
+          <h1>🔔 Solicitações Pendentes</h1>
+          <p class="page-sub">Analise e aprove ou recuse empréstimos</p>
+        </div>
+        <div id="adm-requests-list" class="requests-list"></div>
+      </section>
+
+      <!-- Empréstimos -->
+      <section class="content-section hidden" id="adm-loans">
+        <div class="page-header">
+          <h1>💰 Gestão de Empréstimos</h1>
+          <div class="search-bar">
+            <input type="text" id="adm-search-loan" placeholder="🔍 Buscar por nome, CPF..." oninput="filterLoans()" />
+          </div>
+        </div>
+        <div class="filter-tabs">
+          <button class="filter-tab active" onclick="filterByStatus('all')" id="ft-all">Todos</button>
+          <button class="filter-tab" onclick="filterByStatus('active')" id="ft-active">Ativos</button>
+          <button class="filter-tab" onclick="filterByStatus('pending')" id="ft-pending">Pendentes</button>
+          <button class="filter-tab" onclick="filterByStatus('overdue')" id="ft-overdue">Atrasados</button>
+          <button class="filter-tab" onclick="filterByStatus('paid')" id="ft-paid">Quitados</button>
+        </div>
+        <div id="adm-loans-list" class="loans-admin-list"></div>
+      </section>
+
+      <!-- Clientes -->
+      <section class="content-section hidden" id="adm-clients">
+        <div class="page-header">
+          <h1>👥 Gestão de Clientes</h1>
+          <div class="search-bar">
+            <input type="text" id="adm-search-client" placeholder="🔍 Buscar por nome, CPF, telefone..." oninput="filterClients()" />
+          </div>
+        </div>
+        <div id="adm-clients-list" class="clients-list"></div>
+      </section>
+
+      <!-- Central SMS -->
+      <section class="content-section hidden" id="adm-sms">
+        <div class="page-header">
+          <h1>📱 Central de SMS</h1>
+          <p class="page-sub">Gerencie os avisos enviados aos devedores</p>
+        </div>
+        <div class="sms-layout">
+          <div class="sms-compose-card">
+            <h3>Enviar SMS</h3>
+            <div class="input-group">
+              <label>Destinatário</label>
+              <select id="sms-dest" onchange="updateSMSPreview()">
+                <option value="all">📢 Todos os clientes com dívida</option>
+                <option value="overdue">⚠️ Apenas atrasados</option>
+                <option value="due-soon">⏰ Vence nos próximos 3 dias</option>
+                <option value="specific">👤 Cliente específico</option>
+              </select>
+            </div>
+            <div class="input-group" id="sms-client-select-group" style="display:none">
+              <label>Selecionar Cliente</label>
+              <select id="sms-client-select"></select>
+            </div>
+            <div class="input-group">
+              <label>Template de Mensagem</label>
+              <select id="sms-template" onchange="loadSMSTemplate()">
+                <option value="vencimento">⏰ Aviso de Vencimento</option>
+                <option value="atraso">⚠️ Pagamento em Atraso</option>
+                <option value="aprovacao">✅ Empréstimo Aprovado</option>
+                <option value="recusa">❌ Empréstimo Recusado</option>
+                <option value="quitacao">🎉 Parabéns - Quitação</option>
+                <option value="custom">✏️ Mensagem Personalizada</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label>Mensagem</label>
+              <textarea id="sms-msg" rows="5" placeholder="Sua mensagem..." oninput="countSMSChars()"></textarea>
+              <small id="sms-chars">0/160 caracteres</small>
+            </div>
+            <div class="sms-preview-box" id="sms-preview-box">
+              <div class="phone-preview">
+                <div class="phone-screen">
+                  <div class="sms-bubble" id="sms-preview-text">Prévia da mensagem</div>
+                </div>
+              </div>
+            </div>
+            <button class="btn-primary full" onclick="sendSMS()">📤 Enviar SMS</button>
+          </div>
+
+          <div class="sms-history-card">
+            <h3>Histórico de SMS</h3>
+            <div id="sms-history-list" class="sms-history-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Configurações -->
+      <section class="content-section hidden" id="adm-settings">
+        <div class="page-header">
+          <h1>⚙️ Configurações do Sistema</h1>
+        </div>
+        <div class="settings-grid">
+          <div class="settings-card">
+            <h3>💰 Taxas de Juros Padrão</h3>
+            <div class="input-group">
+              <label>Juros para 1 mês (%)</label>
+              <input type="number" id="taxa-1" min="0" max="100" step="0.1" value="15" />
+            </div>
+            <div class="input-group">
+              <label>Juros para 2 meses (%)</label>
+              <input type="number" id="taxa-2" min="0" max="100" step="0.1" value="20" />
+            </div>
+            <div class="input-group">
+              <label>Juros para 3 meses (%)</label>
+              <input type="number" id="taxa-3" min="0" max="100" step="0.1" value="25" />
+            </div>
+            <div class="input-group">
+              <label>Juros para 6 meses (%)</label>
+              <input type="number" id="taxa-6" min="0" max="100" step="0.1" value="35" />
+            </div>
+            <div class="input-group">
+              <label>Juros para 12 meses (%)</label>
+              <input type="number" id="taxa-12" min="0" max="100" step="0.1" value="50" />
+            </div>
+            <div class="input-group">
+              <label>Juros de Atraso (% ao dia)</label>
+              <input type="number" id="taxa-atraso" min="0" max="10" step="0.1" value="1" />
+            </div>
+            <button class="btn-primary full" onclick="saveTaxas()">Salvar Taxas</button>
+          </div>
+
+          <div class="settings-card">
+            <h3>💵 Limites de Crédito</h3>
+            <div class="input-group">
+              <label>Empréstimo Mínimo (R$)</label>
+              <input type="number" id="limite-min" min="0" value="200" />
+            </div>
+            <div class="input-group">
+              <label>Empréstimo Máximo (R$)</label>
+              <input type="number" id="limite-max" min="0" value="5000" />
+            </div>
+            <div class="input-group">
+              <label>Máximo por Cliente Ativo (R$)</label>
+              <input type="number" id="limite-cliente" min="0" value="10000" />
+            </div>
+            <button class="btn-primary full" onclick="saveLimites()">Salvar Limites</button>
+          </div>
+
+          <div class="settings-card">
+            <h3>📱 Configurações de SMS</h3>
+            <div class="input-group">
+              <label>Dias antes do vencimento para avisar</label>
+              <input type="number" id="sms-dias" min="1" max="30" value="3" />
+            </div>
+            <div class="input-group">
+              <label>Avisar também no dia do vencimento</label>
+              <div class="toggle-switch">
+                <input type="checkbox" id="sms-dia-vcto" checked />
+                <label for="sms-dia-vcto"></label>
+                <span>Ativo</span>
+              </div>
+            </div>
+            <div class="input-group">
+              <label>Avisar atrasados a cada (dias)</label>
+              <input type="number" id="sms-atraso-freq" min="1" max="30" value="7" />
+            </div>
+            <button class="btn-primary full" onclick="saveSMSConfig()">Salvar Configurações</button>
+          </div>
+
+          <div class="settings-card">
+            <h3>🔐 Segurança do Sistema</h3>
+            <div class="input-group">
+              <label>Nova Senha do Admin</label>
+              <input type="password" id="adm-new-pass" placeholder="Nova senha" />
+            </div>
+            <div class="input-group">
+              <label>Confirmar Nova Senha</label>
+              <input type="password" id="adm-new-pass2" placeholder="Repita a senha" />
+            </div>
+            <button class="btn-primary full" onclick="changeAdminPass()">Alterar Senha</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL DE APROVAÇÃO DE EMPRÉSTIMO
+════════════════════════════════════════════════════════════ -->
+<div id="modal-approve" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>✅ Aprovar Empréstimo</h3>
+      <button class="modal-close" onclick="closeModal('modal-approve')">✕</button>
+    </div>
+    <div id="modal-approve-content"></div>
+    <div class="modal-footer">
+      <button class="btn-danger" onclick="rejectLoan()">❌ Recusar</button>
+      <button class="btn-primary" onclick="approveLoan()">✅ Aprovar & Enviar SMS</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL DE DETALHES DO EMPRÉSTIMO
+════════════════════════════════════════════════════════════ -->
+<div id="modal-loan-detail" class="modal-overlay hidden">
+  <div class="modal-card large">
+    <div class="modal-header">
+      <h3>📋 Detalhes do Empréstimo</h3>
+      <button class="modal-close" onclick="closeModal('modal-loan-detail')">✕</button>
+    </div>
+    <div id="modal-loan-detail-content"></div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('modal-loan-detail')">Fechar</button>
+      <button class="btn-primary" onclick="markAsPaid()">💳 Registrar Pagamento</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TOAST NOTIFICATIONS
+════════════════════════════════════════════════════════════ -->
+<div id="toast-container" class="toast-container"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
