@@ -231,21 +231,9 @@
         <div><span class="brand-agil">ágil</span><span class="brand-bank">bank</span></div>
       </div>
       <nav class="sidebar-nav">
-        <a class="nav-item active" onclick="clientNav('dashboard')" id="cnav-dashboard">
-          <span class="nav-icon">📊</span> Dashboard
-        </a>
-        <a class="nav-item" onclick="clientNav('loan-request')" id="cnav-loan-request">
-          <span class="nav-icon">💰</span> Solicitar Empréstimo
-        </a>
-        <a class="nav-item" onclick="clientNav('my-loans')" id="cnav-my-loans">
-          <span class="nav-icon">📋</span> Meus Empréstimos
-        </a>
-        <a class="nav-item" onclick="clientNav('payments')" id="cnav-payments">
-          <span class="nav-icon">💳</span> Pagamentos
-        </a>
-        <a class="nav-item" onclick="clientNav('profile')" id="cnav-profile">
-          <span class="nav-icon">👤</span> Meu Perfil
-        </a>
+          <div class="nav-item active" id="cnav-dashboard" onclick="clientNav('dashboard')">🏠 Início</div>
+          <div class="nav-item" id="cnav-request" onclick="clientNav('request')">💸 Pedir Dinheiro</div>
+          <div class="nav-item" id="cnav-my-loans" onclick="clientNav('my-loans')">📋 Meus Pedidos</div>
       </nav>
       <div class="sidebar-footer">
         <div class="user-card-mini" id="client-user-card"></div>
@@ -264,7 +252,7 @@
             <p class="page-sub">Aqui está um resumo da sua conta</p>
           </div>
           <div class="header-actions">
-            <button class="btn-primary sm" onclick="clientNav('loan-request')">+ Novo Empréstimo</button>
+            <button class="btn-primary sm" onclick="clientNav('request')">+ Novo Empréstimo</button>
           </div>
         </div>
 
@@ -318,16 +306,12 @@
 
       <!-- Solicitar Empréstimo -->
       <section class="content-section hidden" id="cl-loan-request">
-        <div class="page-header">
-          <h1>💰 Solicitar Empréstimo</h1>
-          <p class="page-sub">Sem consulta ao SPC/Serasa</p>
-        </div>
-
-        <div class="loan-request-layout">
-          <div class="loan-form-card">
-            <h3>Configure seu empréstimo</h3>
+        <div id="cl-request-loan" class="content-section hidden">
+          <h2>Pedir Dinheiro</h2>
+          <p style="color:var(--text-sec);margin-bottom:20px">Preencha os dados abaixo para pedir seu dinheiro de forma rápida e sem burocracia.</p>
+          <div class="request-form">
             <div class="input-group">
-              <label>Valor Desejado</label>
+              <label>De quanto você precisa?</label>
               <input type="text" id="lr-valor" placeholder="R$ 0,00" oninput="maskMoney(this); updateLoanPreview()" />
             </div>
             <div class="input-group">
@@ -372,8 +356,23 @@
               </div>
             </div>
 
-            <button class="btn-primary full" onclick="submitLoanRequest()">Enviar Solicitação 🚀</button>
+            <div class="security-box">
+              <p><strong>🔒 Segurança:</strong> Para liberar o dinheiro, precisamos de uma foto sua e da sua localização atual.</p>
+              <div id="camera-container" style="display:none; text-align:center; margin: 10px 0;">
+                <video id="camera-feed" autoplay playsinline style="width:100%; max-width:250px; border-radius:8px; background:#000;"></video>
+                <canvas id="camera-canvas" style="display:none;"></canvas>
+              </div>
+              <div id="security-result" style="display:none; margin: 10px 0; text-align:center;">
+                <img id="selfie-preview" style="width:100%; max-width:150px; border-radius:8px; border: 3px solid var(--green);" />
+                <div style="color:var(--green); margin-top:5px; font-weight:bold;">✅ Foto e Localização capturados!</div>
+              </div>
+              <button type="button" class="btn-secondary" id="btn-start-camera" style="width:100%; margin-bottom:15px; padding: 12px; font-size: 15px;" onclick="startSecurityCapture()">📸 Liberar Câmera e GPS</button>
+              <button type="button" class="btn-primary" id="btn-take-photo" style="width:100%; margin-bottom:15px; display:none; padding: 12px; font-size: 15px;" onclick="takePhoto()">Tirar Foto Agora</button>
+            </div>
+            
+            <button class="btn-primary" style="width:100%;font-size:16px;padding:14px; margin-top:10px;" id="btn-submit-loan" onclick="submitLoanRequest()">Enviar Pedido de Dinheiro</button>
           </div>
+        </div>
 
           <div class="loan-info-card">
             <h3>Como Funciona?</h3>

@@ -485,6 +485,55 @@ function loadProfile(clientId) {
     </div>`;
 }
 
+let capturedSelfie = null;
+let capturedLocation = null;
+let videoStream = null;
+
+async function startSecurityCapture() {
+  document.getElementById('btn-start-camera').style.display = 'none';
+  document.getElementById('camera-container').style.display = 'block';
+  
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { capturedLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
+      (err) => { console.warn("GPS error:", err); }
+    );
+  }
+
+  try {
+    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+    const videoEl = document.getElementById('camera-feed');
+    videoEl.srcObject = videoStream;
+    document.getElementById('btn-take-photo').style.display = 'block';
+  } catch (err) {
+    toast('Erro de Câmera', 'Não foi possível acessar a câmera. Tente novamente.', 'error');
+    document.getElementById('btn-start-camera').style.display = 'block';
+    document.getElementById('camera-container').style.display = 'none';
+  }
+}
+
+function takePhoto() {
+  const videoEl = document.getElementById('camera-feed');
+  const canvas = document.getElementById('camera-canvas');
+  canvas.width = videoEl.videoWidth;
+  canvas.height = videoEl.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+  
+  capturedSelfie = canvas.toDataURL('image/jpeg');
+  
+  if (videoStream) {
+    videoStream.getTracks().forEach(track => track.stop());
+  }
+  
+  document.getElementById('camera-container').style.display = 'none';
+  document.getElementById('btn-take-photo').style.display = 'none';
+  
+  const preview = document.getElementById('selfie-preview');
+  preview.src = capturedSelfie;
+  document.getElementById('security-result').style.display = 'block';
+}
+
 function submitLoanRequest() {
   const user = DB.currentUser;
   if (!user) { toast('Erro', 'Faça login para continuar.', 'error'); return; }
@@ -504,6 +553,9 @@ function submitLoanRequest() {
   if (!motivo) {
     toast('Atenção', 'Selecione o motivo do empréstimo.', 'warning'); return;
   }
+  if (!capturedSelfie) {
+    toast('Segurança', 'Por favor, libere a câmera e tire a foto de segurança para enviar o pedido.', 'warning'); return;
+  }
 
   const newLoan = {
     id: 'l' + Date.now(),
@@ -517,6 +569,8 @@ function submitLoanRequest() {
     juros: null,
     totalComJuros: null,
     parcelas: null,
+    selfie: capturedSelfie,
+    location: capturedLocation
   };
 
   const loans = DB.loans;
@@ -528,7 +582,12 @@ function submitLoanRequest() {
   document.getElementById('lr-desc').value = '';
   updateLoanPreview();
 
-  toast('Solicitação enviada!', 'Sua solicitação foi enviada e será analisada em até 24h. Você receberá um SMS! 📱', 'success');
+  capturedSelfie = null;
+  capturedLocation = null;
+  document.getElementById('security-result').style.display = 'none';
+  document.getElementById('btn-start-camera').style.display = 'block';
+
+  toast('Pedido enviado!', 'Seu pedido foi enviado e será analisado em até 24h. Você receberá um SMS! 📱', 'success');
   clientNav('my-loans');
 }
 
@@ -701,6 +760,8 @@ function loadPendingRequests() {
           <div class="req-field"><label>Garantia</label><span class="req-value" style="font-size:13px">${client.garantia || 'Nenhuma'}</span></div>
           <div class="req-field"><label>Indicação</label><span class="req-value" style="font-size:13px">${client.indicacao || 'Nenhuma'}</span></div>
           ${l.descricao ? `<div class="req-field" style="grid-column:1/-1"><label>Descrição</label><span style="font-size:13px;color:var(--text-sec)">${l.descricao}</span></div>` : ''}
+          ${l.selfie ? `<div class="req-field" style="grid-column:1/-1; margin-top:10px;"><label>Foto de Segurança</label><img src="${l.selfie}" style="max-height:100px; border-radius:4px; border:2px solid var(--border);" /></div>` : ''}
+          ${l.location ? `<div class="req-field" style="grid-column:1/-1;"><label>Localização GPS</label><a href="https://www.google.com/maps?q=${l.location.lat},${l.location.lng}" target="_blank" style="color:var(--blue); font-size:13px; text-decoration:underline;">📍 Abrir no Google Maps</a></div>` : ''}
         </div>
         <div class="request-footer">
           <div class="interest-input">
