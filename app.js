@@ -5,18 +5,42 @@
 
 'use strict';
 
+// ─── SERVICE WORKER REGISTRATION ────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.error('SW Error:', err));
+  });
+}
+
+// ─── PWA INSTALL PROMPT (Android & iOS) ─────────────────────
 let deferredPrompt;
 
-// PWA Install Prompt
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  // Mostra o banner após 2 segundos
+// Check if device is iOS
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+// Check if already installed
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+if (isIOS && !isStandalone) {
+  // iOS fallback since it doesn't support beforeinstallprompt
   setTimeout(() => {
     const banner = document.getElementById('pwa-install-banner');
+    const text = document.querySelector('#pwa-install-banner .pwa-text p');
+    const installBtn = document.querySelector('#pwa-install-banner .btn-primary-small');
+    if (text) text.innerHTML = 'Toque em <b style="font-size:16px;">[↑] Compartilhar</b> e depois em <br><b>[+] Adicionar à Tela de Início</b>.';
+    if (installBtn) installBtn.style.display = 'none'; // Hide install btn on iOS
     if (banner) banner.classList.add('show');
-  }, 2000);
-});
+  }, 2500);
+} else if (!isIOS) {
+  // Android / Chrome
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    setTimeout(() => {
+      const banner = document.getElementById('pwa-install-banner');
+      if (banner) banner.classList.add('show');
+    }, 2500);
+  });
+}
 
 function installApp() {
   if (deferredPrompt) {
@@ -33,6 +57,7 @@ function closeInstallBanner() {
   const banner = document.getElementById('pwa-install-banner');
   if (banner) banner.classList.remove('show');
 }
+
 
 // ══════════════════════════════════════
 // STATE / DATABASE (localStorage + Server Sync)
