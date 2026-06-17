@@ -278,7 +278,7 @@ function clientNav(section) {
 
   const secMap = {
     'dashboard':   'cl-dashboard',
-    'loan-request':'cl-loan-request',
+    'request':     'cl-loan-request',
     'my-loans':    'cl-my-loans',
     'payments':    'cl-payments',
     'profile':     'cl-profile',
