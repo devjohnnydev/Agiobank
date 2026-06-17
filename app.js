@@ -6,21 +6,99 @@
 'use strict';
 
 // ══════════════════════════════════════
-// STATE / DATABASE (localStorage)
+// STATE / DATABASE (localStorage + Server Sync)
 // ══════════════════════════════════════
 
+// Detecta se estamos rodando no servidor (Railway) ou local
+const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? '' // usa mesma origem (servidor node local ou fallback)
+  : ''; // em produção, mesma origem
+
+let _syncTimeout = null;
+let _dbReady = false;
+
+// DB opera na memória — sincroniza com servidor quando disponível
+const _mem = {
+  clients: [],
+  loans: [],
+  smsHistory: [],
+  settings: null,
+};
+
 const DB = {
-  get clients()       { return JSON.parse(localStorage.getItem('ab_clients') || '[]'); },
-  set clients(v)      { localStorage.setItem('ab_clients', JSON.stringify(v)); },
-  get loans()         { return JSON.parse(localStorage.getItem('ab_loans') || '[]'); },
-  set loans(v)        { localStorage.setItem('ab_loans', JSON.stringify(v)); },
-  get smsHistory()    { return JSON.parse(localStorage.getItem('ab_sms') || '[]'); },
-  set smsHistory(v)   { localStorage.setItem('ab_sms', JSON.stringify(v)); },
-  get settings()      { return JSON.parse(localStorage.getItem('ab_settings') || JSON.stringify(DEFAULT_SETTINGS)); },
-  set settings(v)     { localStorage.setItem('ab_settings', JSON.stringify(v)); },
+  get clients()       { return _mem.clients; },
+  set clients(v)      { _mem.clients = v; _scheduleSync(); _lsSet('ab_clients', v); },
+  get loans()         { return _mem.loans; },
+  set loans(v)        { _mem.loans = v; _scheduleSync(); _lsSet('ab_loans', v); },
+  get smsHistory()    { return _mem.smsHistory; },
+  set smsHistory(v)   { _mem.smsHistory = v; _scheduleSync(); _lsSet('ab_sms', v); },
+  get settings()      { return _mem.settings || JSON.parse(localStorage.getItem('ab_settings') || JSON.stringify(DEFAULT_SETTINGS)); },
+  set settings(v)     { _mem.settings = v; _scheduleSync(); _lsSet('ab_settings', v); },
   get currentUser()   { return JSON.parse(sessionStorage.getItem('ab_user') || 'null'); },
   set currentUser(v)  { sessionStorage.setItem('ab_user', JSON.stringify(v)); },
 };
+
+function _lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+}
+
+function _scheduleSync() {
+  if (_syncTimeout) clearTimeout(_syncTimeout);
+  _syncTimeout = setTimeout(_pushState, 1500); // debounce 1.5s
+}
+
+async function _pushState() {
+  try {
+    await fetch(API_BASE + '/api/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clients: _mem.clients,
+        loans: _mem.loans,
+        smsHistory: _mem.smsHistory,
+        settings: _mem.settings || DEFAULT_SETTINGS,
+      }),
+    });
+  } catch (e) {
+    // silently fail — dados continuam no localStorage
+  }
+}
+
+async function _loadState() {
+  // Carrega do localStorage enquanto aguarda o servidor
+  _mem.clients    = JSON.parse(localStorage.getItem('ab_clients')  || '[]');
+  _mem.loans      = JSON.parse(localStorage.getItem('ab_loans')    || '[]');
+  _mem.smsHistory = JSON.parse(localStorage.getItem('ab_sms')      || '[]');
+  _mem.settings   = JSON.parse(localStorage.getItem('ab_settings') || JSON.stringify(DEFAULT_SETTINGS));
+
+  try {
+    const res = await fetch(API_BASE + '/api/state');
+    if (res.ok) {
+      const data = await res.json();
+      // Só atualiza se o servidor tiver mais dados
+      if (data.clients && data.clients.length >= _mem.clients.length) {
+        _mem.clients    = data.clients;
+        _lsSet('ab_clients', data.clients);
+      }
+      if (data.loans && data.loans.length >= _mem.loans.length) {
+        _mem.loans      = data.loans;
+        _lsSet('ab_loans', data.loans);
+      }
+      if (data.smsHistory && data.smsHistory.length >= _mem.smsHistory.length) {
+        _mem.smsHistory = data.smsHistory;
+        _lsSet('ab_sms', data.smsHistory);
+      }
+      if (data.settings && Object.keys(data.settings).length > 0) {
+        _mem.settings   = data.settings;
+        _lsSet('ab_settings', data.settings);
+      }
+      console.log('✅ Estado carregado do PostgreSQL!');
+    }
+  } catch (e) {
+    console.warn('⚠️ Servidor offline — usando dados locais');
+  }
+  _dbReady = true;
+}
 
 const DEFAULT_SETTINGS = {
   taxas: { 1: 15, 2: 20, 3: 25, 6: 35, 12: 50 },
@@ -42,89 +120,26 @@ let currentLoansFilter = 'all';
 // ══════════════════════════════════════
 function seedData() {
   if (DB.clients.length > 0) return;
-
-  const clients = [
-    { id: 'c1', nome: 'João Silva', cpf: '123.456.789-00', email: 'joao@email.com', tel: '(11) 98765-4321', cidade: 'São Paulo', estado: 'SP', endereco: 'Rua das Flores, 123', nasc: '1985-06-15', emprego: 'Autônomo / Freelancer', renda: 'R$ 2.500,00', senha: '123456', cadastro: new Date('2025-01-10').toISOString() },
-    { id: 'c2', nome: 'Maria Oliveira', cpf: '987.654.321-00', email: 'maria@email.com', tel: '(21) 99887-6655', cidade: 'Rio de Janeiro', estado: 'RJ', endereco: 'Av. Copacabana, 400', nasc: '1990-03-22', emprego: 'Desempregado', renda: 'R$ 0,00', senha: '123456', cadastro: new Date('2025-02-05').toISOString() },
-    { id: 'c3', nome: 'Carlos Mendes', cpf: '456.789.123-00', email: 'carlos@email.com', tel: '(31) 97654-3210', cidade: 'Belo Horizonte', estado: 'MG', endereco: 'Rua Central, 89', nasc: '1978-11-08', emprego: 'Microempreendedor (MEI)', renda: 'R$ 4.000,00', senha: '123456', cadastro: new Date('2025-03-15').toISOString() },
-    { id: 'c4', nome: 'Ana Pereira', cpf: '321.654.987-00', email: 'ana@email.com', tel: '(11) 96543-2100', cidade: 'Campinas', estado: 'SP', endereco: 'Rua das Palmeiras, 55', nasc: '1995-08-30', emprego: 'Aposentado / Pensionista', renda: 'R$ 1.800,00', senha: '123456', cadastro: new Date('2025-04-20').toISOString() },
-  ];
-
-  const today = new Date();
-  const d = (days) => {
-    const dt = new Date(today);
-    dt.setDate(dt.getDate() + days);
-    return dt.toISOString().split('T')[0];
-  };
-
-  const loans = [
-    {
-      id: 'l1', clientId: 'c1', valor: 1500, prazo: 3, juros: 25, motivo: 'Capital de giro',
-      status: 'active', createdAt: new Date('2025-04-01').toISOString(),
-      approvedAt: new Date('2025-04-02').toISOString(),
-      totalComJuros: 1875,
-      parcelas: [
-        { n: 1, valor: 625, vcto: d(-60), status: 'paid', paidAt: d(-60) },
-        { n: 2, valor: 625, vcto: d(-30), status: 'paid', paidAt: d(-30) },
-        { n: 3, valor: 625, vcto: d(3),   status: 'pending' },
-      ],
-    },
-    {
-      id: 'l2', clientId: 'c2', valor: 800, prazo: 1, juros: 15, motivo: 'Emergência médica',
-      status: 'overdue', createdAt: new Date('2025-05-01').toISOString(),
-      approvedAt: new Date('2025-05-02').toISOString(),
-      totalComJuros: 920,
-      parcelas: [
-        { n: 1, valor: 920, vcto: d(-15), status: 'overdue' },
-      ],
-    },
-    {
-      id: 'l3', clientId: 'c3', valor: 3000, prazo: 6, juros: 35, motivo: 'Compra de equipamentos',
-      status: 'active', createdAt: new Date('2025-03-15').toISOString(),
-      approvedAt: new Date('2025-03-16').toISOString(),
-      totalComJuros: 4050,
-      parcelas: [
-        { n: 1, valor: 675, vcto: d(-90), status: 'paid', paidAt: d(-90) },
-        { n: 2, valor: 675, vcto: d(-60), status: 'paid', paidAt: d(-60) },
-        { n: 3, valor: 675, vcto: d(-30), status: 'paid', paidAt: d(-30) },
-        { n: 4, valor: 675, vcto: d(1),   status: 'pending' },
-        { n: 5, valor: 675, vcto: d(31),  status: 'pending' },
-        { n: 6, valor: 675, vcto: d(61),  status: 'pending' },
-      ],
-    },
-    {
-      id: 'l4', clientId: 'c4', valor: 500, prazo: 2, juros: 20, motivo: 'Pagamento de dívidas',
-      status: 'pending', createdAt: new Date().toISOString(), motivo: 'Pagamento de dívidas',
-      totalComJuros: null, juros: null,
-    },
-    {
-      id: 'l5', clientId: 'c1', valor: 2000, prazo: 6, juros: 35, motivo: 'Reforma/Melhorias',
-      status: 'paid', createdAt: new Date('2024-10-01').toISOString(),
-      approvedAt: new Date('2024-10-02').toISOString(),
-      totalComJuros: 2700,
-      parcelas: [
-        { n: 1, valor: 450, vcto: d(-180), status: 'paid', paidAt: d(-180) },
-        { n: 2, valor: 450, vcto: d(-150), status: 'paid', paidAt: d(-150) },
-        { n: 3, valor: 450, vcto: d(-120), status: 'paid', paidAt: d(-120) },
-        { n: 4, valor: 450, vcto: d(-90),  status: 'paid', paidAt: d(-90) },
-        { n: 5, valor: 450, vcto: d(-60),  status: 'paid', paidAt: d(-60) },
-        { n: 6, valor: 450, vcto: d(-30),  status: 'paid', paidAt: d(-30) },
-      ],
-    },
-  ];
-
-  DB.clients = clients;
-  DB.loans   = loans;
+  DB.clients = [];
+  DB.loans   = [];
   DB.settings = DEFAULT_SETTINGS;
 }
 
 // ══════════════════════════════════════
 // INIT
 // ══════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
-  seedData();
+document.addEventListener('DOMContentLoaded', async () => {
   createParticles();
   loadSMSTemplate();
+
+  // Mostra loading enquanto carrega do banco
+  const loginScreen = document.getElementById('screen-login');
+  if (loginScreen) loginScreen.style.opacity = '0.5';
+
+  await _loadState();
+  seedData(); // só popula se estiver vazio
+
+  if (loginScreen) loginScreen.style.opacity = '1';
 
   const user = DB.currentUser;
   if (user) {
@@ -1185,6 +1200,57 @@ window.editResponsavel = function(clientId) {
     DB.clients = clients;
     loadAllClients();
   }
+};
+
+window.openAdminAddClientModal = function() {
+  document.getElementById('add-cli-vcto').value = getDefaultDate(30);
+  document.getElementById('modal-add-client').classList.remove('hidden');
+};
+
+window.adminAddClient = function() {
+  const nome = document.getElementById('add-cli-nome').value.trim();
+  const tel = document.getElementById('add-cli-tel').value.trim();
+  const cpf = document.getElementById('add-cli-cpf').value.trim();
+  const responsavel = document.getElementById('add-cli-resp').value.trim();
+  const valor = parseFloat(document.getElementById('add-cli-valor').value);
+  const taxa = parseFloat(document.getElementById('add-cli-taxa').value);
+  const prazo = parseInt(document.getElementById('add-cli-prazo').value);
+  const tipo = document.getElementById('add-cli-tipo').value;
+  const vcto = document.getElementById('add-cli-vcto').value;
+
+  if (!nome || !tel || !valor || !taxa || !prazo || !vcto) {
+    toast('Atenção', 'Preencha os campos essenciais do devedor e empréstimo.', 'warning');
+    return;
+  }
+
+  const clientId = 'c' + Date.now();
+  const newClient = {
+    id: clientId,
+    nome, cpf: cpf || '000.000.000-00', tel, responsavel,
+    cidade: 'Não informada', estado: '',
+    cadastro: new Date().toISOString()
+  };
+
+  const clients = DB.clients;
+  clients.push(newClient);
+  DB.clients = clients;
+
+  const loanId = 'l' + Date.now();
+  const newLoan = {
+    id: loanId, clientId, valor, prazo, juros: taxa,
+    status: 'pending', createdAt: new Date().toISOString()
+  };
+
+  const loans = DB.loans;
+  loans.push(newLoan);
+  DB.loans = loans;
+
+  // Usa a função de aprovação com taxa que já calcula as parcelas
+  approveWithRate(loanId, taxa, tipo, vcto);
+
+  toast('Devedor Adicionado!', 'Cliente e empréstimo registrados com sucesso.', 'success');
+  closeModal('modal-add-client');
+  loadAllClients();
 };
 
 // ══════════════════════════════════════

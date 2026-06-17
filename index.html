@@ -597,10 +597,13 @@
 
       <!-- Clientes -->
       <section class="content-section hidden" id="adm-clients">
-        <div class="page-header">
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:center;">
           <h1>👥 Gestão de Clientes</h1>
-          <div class="search-bar">
-            <input type="text" id="adm-search-client" placeholder="🔍 Buscar por nome, CPF, telefone..." oninput="filterClients()" />
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button class="btn-primary" onclick="openAdminAddClientModal()" style="height:44px; white-space:nowrap;">+ Adicionar</button>
+            <div class="search-bar" style="margin:0;">
+              <input type="text" id="adm-search-client" placeholder="🔍 Buscar..." oninput="filterClients()" />
+            </div>
           </div>
         </div>
         <div id="adm-clients-list" class="clients-list"></div>
@@ -731,8 +734,9 @@
               <label>Avisar atrasados a cada (dias)</label>
               <input type="number" id="sms-atraso-freq" min="1" max="30" value="7" />
             </div>
-            <button class="btn-primary full" onclick="saveSMSConfig()">Salvar Configurações</button>
-          </div>
+            <button class="btn-primary" onclick="saveSettings()">💾 Salvar Configurações</button>
+          <button class="btn-danger" style="margin-left: 10px;" onclick="if(confirm('Tem certeza? Isso apagará TODOS os dados!')) { localStorage.clear(); location.reload(); }">⚠️ Zerar Sistema (Limpar Todos os Dados)</button>
+        </div>
 
           <div class="settings-card">
             <h3>🔐 Segurança do Sistema</h3>
@@ -783,6 +787,43 @@
     <div class="modal-footer">
       <button class="btn-outline" onclick="closeModal('modal-loan-detail')">Fechar</button>
       <button class="btn-primary" onclick="markAsPaid()">💳 Registrar Pagamento</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL NOVO DEVEDOR MANUAL
+════════════════════════════════════════════════════════════ -->
+<div id="modal-add-client" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>➕ Novo Devedor (Manual)</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-client')">✕</button>
+    </div>
+    <div class="modal-body" style="padding: 20px; max-height: 70vh; overflow-y: auto;">
+      <div class="input-group"><label>Nome</label><input type="text" id="add-cli-nome" placeholder="Nome do Devedor"></div>
+      <div class="input-group"><label>Telefone / WhatsApp</label><input type="text" id="add-cli-tel" placeholder="(11) 99999-9999"></div>
+      <div class="input-group"><label>CPF</label><input type="text" id="add-cli-cpf" placeholder="000.000.000-00"></div>
+      <div class="input-group"><label>Responsável</label><input type="text" id="add-cli-resp" placeholder="Ex: David Tubarão"></div>
+      <hr style="margin:15px 0; border:1px solid var(--border);">
+      <h4 style="margin-bottom:10px;">Empréstimo Inicial</h4>
+      <div class="input-group"><label>Valor (R$)</label><input type="number" id="add-cli-valor" placeholder="Ex: 1000"></div>
+      <div class="input-group"><label>Taxa de Juros (%) ao período</label><input type="number" id="add-cli-taxa" value="20" step="0.5"></div>
+      <div class="input-group"><label>Prazo (meses)</label><input type="number" id="add-cli-prazo" value="1"></div>
+      <div class="input-group">
+        <label>Modalidade</label>
+        <select id="add-cli-tipo">
+          <option value="convencional">Parcelas Fixas (Principal + Juros)</option>
+          <option value="juros_mensais" selected>Só Juros Mensais (Principal no Final)</option>
+        </select>
+      </div>
+      <div class="input-group"><label>1º Vencimento</label><input type="date" id="add-cli-vcto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('modal-add-client')">Cancelar</button>
+      <button class="btn-primary" onclick="adminAddClient()">Salvar Devedor</button>
     </div>
   </div>
 </div>
