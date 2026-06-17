@@ -8,12 +8,15 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // ─── PostgreSQL ──────────────────────────────────────────────
+const isRailwayInternal = process.env.DATABASE_URL && process.env.DATABASE_URL.includes('internal');
+
 const pool = process.env.DATABASE_URL
   ? new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
+      ssl: isRailwayInternal ? false : { rejectUnauthorized: false },
     })
   : null;
+
 
 // ─── Middlewares ─────────────────────────────────────────────
 app.use(cors());
