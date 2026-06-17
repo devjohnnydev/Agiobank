@@ -8,6 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1a1e29" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon.svg" />
 </head>
 <body>
 
@@ -356,16 +360,16 @@
             </div>
 
             <div class="security-box">
-              <p><strong>🔒 Segurança:</strong> Para liberar o dinheiro, precisamos de uma foto sua e da sua localização atual.</p>
+              <p><strong>🔒 Segurança:</strong> Para liberar o dinheiro, precisamos de uma foto sua para registro.</p>
               <div id="camera-container" style="display:none; text-align:center; margin: 10px 0;">
                 <video id="camera-feed" autoplay playsinline style="width:100%; max-width:250px; border-radius:8px; background:#000;"></video>
                 <canvas id="camera-canvas" style="display:none;"></canvas>
               </div>
               <div id="security-result" style="display:none; margin: 10px 0; text-align:center;">
                 <img id="selfie-preview" style="width:100%; max-width:150px; border-radius:8px; border: 3px solid var(--green);" />
-                <div style="color:var(--green); margin-top:5px; font-weight:bold;">✅ Foto e Localização capturados!</div>
+                <div style="color:var(--green); margin-top:5px; font-weight:bold;">✅ Foto capturada com sucesso!</div>
               </div>
-              <button type="button" class="btn-secondary" id="btn-start-camera" style="width:100%; margin-bottom:15px; padding: 12px; font-size: 15px;" onclick="startSecurityCapture()">📸 Liberar Câmera e GPS</button>
+              <button type="button" class="btn-secondary" id="btn-start-camera" style="width:100%; margin-bottom:15px; padding: 12px; font-size: 15px;" onclick="startSecurityCapture()">📸 Liberar Câmera</button>
               <button type="button" class="btn-primary" id="btn-take-photo" style="width:100%; margin-bottom:15px; display:none; padding: 12px; font-size: 15px;" onclick="takePhoto()">Tirar Foto Agora</button>
             </div>
             
@@ -789,5 +793,14 @@
 <div id="toast-container" class="toast-container"></div>
 
 <script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(err => {
+        console.warn('ServiceWorker registration failed: ', err);
+      });
+    });
+  }
+</script>
 </body>
 </html>

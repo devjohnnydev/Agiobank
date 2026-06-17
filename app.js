@@ -28,7 +28,7 @@ const DEFAULT_SETTINGS = {
   limiteMin: 200,
   limiteMax: 5000,
   limiteCliente: 10000,
-  smsDias: 3,
+  smsDias: 5,
   smsDiaVcto: true,
   smsAtrasadoFreq: 7,
   adminPass: 'admin123',
@@ -789,6 +789,12 @@ function recalcApproval(loanId, valor, prazo) {
   if (el) el.innerHTML = `Total: <strong style="color:var(--green)">${formatMoney(total)}</strong> · Parcela: <strong>${formatMoney(parcela)}</strong>`;
 }
 
+function getDefaultDate(daysToAdd = 30) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysToAdd);
+  return d.toISOString().split('T')[0];
+}
+
 function openApproveModal(loanId) {
   const loan = DB.loans.find(l => l.id === loanId);
   const client = DB.clients.find(c => c.id === loan.clientId) || {};
@@ -811,10 +817,15 @@ function openApproveModal(loanId) {
       <div class="approve-interest">
         <label>⚙️ Configuração do Pagamento:</label>
         <div class="input-group" style="margin-bottom:12px">
+          <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Modalidade:</label>
           <select id="modal-tipo" onchange="updateModalCalc(${loan.valor}, ${loan.prazo})">
             <option value="convencional">Parcelas Fixas (Principal + Juros)</option>
             <option value="juros_mensais">Só Juros Mensais (Principal no Final)</option>
           </select>
+        </div>
+        <div class="input-group" style="margin-bottom:12px">
+          <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">1º Vencimento:</label>
+          <input type="date" id="modal-vcto" value="${getDefaultDate(30)}" />
         </div>
         <div class="interest-row">
           <input type="number" id="modal-taxa" value="${defaultRate}" min="0" max="200" step="0.5"
@@ -852,11 +863,12 @@ function approveLoan() {
   if (!currentLoanId) return;
   const taxa = parseFloat(document.getElementById('modal-taxa').value) || 0;
   const tipo = document.getElementById('modal-tipo').value;
-  approveWithRate(currentLoanId, taxa, tipo);
+  const vcto = document.getElementById('modal-vcto').value;
+  approveWithRate(currentLoanId, taxa, tipo, vcto);
   closeModal('modal-approve');
 }
 
-function approveWithRate(loanId, taxa, tipo = 'convencional') {
+function approveWithRate(loanId, taxa, tipo = 'convencional', primeiroVcto = null) {
   const loans = DB.loans;
   const idx = loans.findIndex(l => l.id === loanId);
   if (idx === -1) return;
@@ -866,12 +878,14 @@ function approveWithRate(loanId, taxa, tipo = 'convencional') {
   let total = 0;
   let parcelaDesc = '';
 
+  const dataBase = primeiroVcto ? new Date(primeiroVcto + 'T12:00:00') : new Date(new Date().getTime() + 30 * 86400000);
+
   if (tipo === 'convencional') {
     total = calcTotal(l.valor, taxa);
     const parcelaVal = parseFloat((total / l.prazo).toFixed(2));
     for (let i = 1; i <= l.prazo; i++) {
-      const vcto = new Date();
-      vcto.setDate(vcto.getDate() + 30 * i);
+      const vcto = new Date(dataBase);
+      vcto.setMonth(vcto.getMonth() + (i - 1));
       parcelas.push({ n: i, valor: parcelaVal, vcto: vcto.toISOString().split('T')[0], status: 'pending' });
     }
     parcelaDesc = formatMoney(parcelaVal);
@@ -879,8 +893,8 @@ function approveWithRate(loanId, taxa, tipo = 'convencional') {
     const jurosMensal = parseFloat((l.valor * (taxa / 100)).toFixed(2));
     total = (jurosMensal * l.prazo) + l.valor;
     for (let i = 1; i <= l.prazo; i++) {
-      const vcto = new Date();
-      vcto.setDate(vcto.getDate() + 30 * i);
+      const vcto = new Date(dataBase);
+      vcto.setMonth(vcto.getMonth() + (i - 1));
       const isLast = i === l.prazo;
       const val = isLast ? (l.valor + jurosMensal) : jurosMensal;
       parcelas.push({ n: i, valor: val, vcto: vcto.toISOString().split('T')[0], status: 'pending' });
@@ -1227,13 +1241,14 @@ function sendSMS() {
     recipients = clients.filter(c => overIds.includes(c.id));
   } else if (dest === 'due-soon') {
     const today = new Date();
-    const in3 = new Date(); in3.setDate(today.getDate() + 3);
+    const dias = DB.settings.smsDias || 5;
+    const inDays = new Date(); inDays.setDate(today.getDate() + dias);
     const soonIds = [];
     DB.loans.forEach(l => {
       if (!l.parcelas) return;
       l.parcelas.forEach(p => {
         const d = new Date(p.vcto);
-        if (p.status === 'pending' && d >= today && d <= in3) soonIds.push(l.clientId);
+        if (p.status === 'pending' && d >= today && d <= inDays) soonIds.push(l.clientId);
       });
     });
     recipients = clients.filter(c => soonIds.includes(c.id));
@@ -1282,14 +1297,16 @@ function quickSMSClient(clientId) {
 
 function sendBulkSMS() {
   const today = new Date();
-  const in30 = new Date(); in30.setDate(today.getDate() + 30);
+  const dias = DB.settings.smsDias || 5;
+  const inDays = new Date(); inDays.setDate(today.getDate() + dias);
 
   DB.loans.forEach(l => {
     if (!l.parcelas || l.status === 'paid' || l.status === 'rejected') return;
     l.parcelas.forEach(p => {
       if (p.status !== 'pending' && p.status !== 'overdue') return;
       const vcto = new Date(p.vcto);
-      if (vcto > in30) return;
+      
+      if (p.status === 'pending' && vcto > inDays) return;
 
       const client = DB.clients.find(c => c.id === l.clientId);
       if (!client) return;
@@ -1303,7 +1320,7 @@ function sendBulkSMS() {
     });
   });
 
-  toast('📱 SMS em Massa Enviados!', 'Todos os devedores com vencimento nos próximos 30 dias foram avisados!', 'sms');
+  toast('📱 SMS em Massa Enviados!', `Devedores com vencimento em até ${dias} dias foram avisados!`, 'sms');
   loadSMSHistory();
 }
 
