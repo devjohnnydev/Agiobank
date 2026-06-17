@@ -1462,7 +1462,7 @@ body {
 
 .pwa-banner {
   position: fixed;
-  top: -100px;
+  top: -200px;
   left: 50%;
   transform: translateX(-50%);
   width: 90%;
@@ -1478,7 +1478,8 @@ body {
   flex-direction: column;
   gap: 12px;
 }
-.pwa-banner.show { top: 20px; }
+.pwa-banner.show { top: 80px; }
+
 
 
 .pwa-banner-content {
