@@ -179,7 +179,10 @@ function loginAdmin() {
   const pass = document.getElementById('adm-login-pass').value;
   const s = DB.settings;
 
-  if (user === 'admin' && pass === s.adminPass) {
+  if (
+    (user === 'agiotabraga@gmail.com' && pass === 'Ab@46431194') ||
+    (user === 'admin' && pass === s.adminPass)
+  ) {
     DB.currentUser = { role: 'admin', nome: 'Administrador' };
     enterAdmin();
     toast('Acesso concedido', 'Bem-vindo ao painel administrativo! 🔐', 'success');
@@ -1135,11 +1138,15 @@ function loadAllClients() {
       return acc + l.parcelas.filter(p => p.status !== 'paid').reduce((a, p) => a + p.valor, 0);
     }, 0);
     const initials = c.nome.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase();
+    const selfieUrl = clientLoans.find(l => l.selfie)?.selfie;
+    const avatarHtml = selfieUrl 
+      ? `<img src="${selfieUrl}" class="client-avatar" style="object-fit: cover; border: none; padding: 0;" />`
+      : `<div class="client-avatar">${initials}</div>`;
 
     return `
       <div class="client-card">
         <div class="client-card-header">
-          <div class="client-avatar">${initials}</div>
+          ${avatarHtml}
           <div>
             <div class="client-name">${c.nome}</div>
             <div class="client-cpf">${c.cpf}</div>
@@ -1152,6 +1159,12 @@ function loadAllClients() {
           <div class="cs-item"><label>Devendo</label><span class="${totalDevendo > 0 ? overdueL.length ? 'danger' : 'warning' : ''}">${formatMoney(totalDevendo)}</span></div>
           <div class="cs-item"><label>Emprego</label><span>${c.emprego || '—'}</span></div>
           <div class="cs-item"><label>Renda</label><span>${c.renda || '—'}</span></div>
+          <div class="cs-item" style="grid-column: span 2;">
+            <label>Responsável</label>
+            <span style="cursor:pointer; color:var(--primary); font-weight:bold;" onclick="editResponsavel('${c.id}')">
+              ${c.responsavel ? c.responsavel + ' ✏️' : 'Atribuir Responsável ✏️'}
+            </span>
+          </div>
         </div>
         <div class="client-actions">
           <button class="btn-view" onclick="adminNav('loans');filterByStatus('all');document.getElementById('adm-search-loan').value='${c.nome.split(' ')[0]}';filterLoans()">Ver Empréstimos</button>
@@ -1160,6 +1173,19 @@ function loadAllClients() {
       </div>`;
   }).join('');
 }
+
+window.editResponsavel = function(clientId) {
+  const clients = DB.clients;
+  const client = clients.find(c => c.id === clientId);
+  if (!client) return;
+  const atual = client.responsavel || '';
+  const novoResp = prompt('Digite o nome do responsável por este cliente (Ex: David vulgo Tubarão):', atual);
+  if (novoResp !== null) {
+    client.responsavel = novoResp.trim();
+    DB.clients = clients;
+    loadAllClients();
+  }
+};
 
 // ══════════════════════════════════════
 // SMS PANEL
@@ -1262,7 +1288,12 @@ function sendSMS() {
 
   recipients.forEach(c => logSMS(c, msg, 'Envio Manual'));
 
-  toast('📱 SMS Enviados!', `${recipients.length} mensagem(ns) enviada(s) com sucesso!`, 'sms');
+  if (recipients.length === 1) {
+    const phone = recipients[0].tel.replace(/\D/g, '');
+    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+  }
+
+  toast('📱 Mensagens Geradas!', `${recipients.length} mensagem(ns) pronta(s). Acesse o histórico para enviar via WhatsApp!`, 'sms');
   loadSMSHistory();
 }
 
@@ -1282,7 +1313,11 @@ function quickSMS(clientId, loanId, type) {
   }
 
   logSMS(client, msg, type === 'atraso' ? 'Aviso de Atraso' : 'Aviso de Vencimento');
-  toast('📱 SMS Enviado!', `Mensagem enviada para ${client.nome} (${client.tel})`, 'sms');
+  
+  const phone = client.tel.replace(/\D/g, '');
+  window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+  
+  toast('📱 Mensagem Gerada!', `WhatsApp aberto para ${client.nome}`, 'sms');
   loadSMSHistory();
 }
 
@@ -1320,7 +1355,7 @@ function sendBulkSMS() {
     });
   });
 
-  toast('📱 SMS em Massa Enviados!', `Devedores com vencimento em até ${dias} dias foram avisados!`, 'sms');
+  toast('📱 Mensagens em Massa Geradas!', `Vá ao Histórico de SMS e clique em "Enviar no WhatsApp" para entregar cada uma.`, 'sms');
   loadSMSHistory();
 }
 
@@ -1348,7 +1383,10 @@ function loadSMSHistory() {
     return;
   }
 
-  container.innerHTML = history.map(s => `
+  container.innerHTML = history.map(s => {
+    const phone = s.clientTel.replace(/\D/g, '');
+    const waLink = `https://wa.me/55${phone}?text=${encodeURIComponent(s.msg)}`;
+    return `
     <div class="sms-history-item">
       <div class="sms-hist-header">
         <span class="sms-hist-to">📱 ${s.clientNome} (${s.clientTel})</span>
@@ -1356,7 +1394,11 @@ function loadSMSHistory() {
       </div>
       <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">${s.tipo}</div>
       <div class="sms-hist-msg">${s.msg}</div>
-    </div>`).join('');
+      <a href="${waLink}" target="_blank" class="btn-primary" style="display:inline-block; margin-top:8px; padding: 6px 12px; font-size: 12px; text-decoration: none; text-align: center;">
+        📲 Enviar no WhatsApp
+      </a>
+    </div>`;
+  }).join('');
 }
 
 // ══════════════════════════════════════
