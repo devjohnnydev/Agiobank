@@ -236,14 +236,46 @@ function switchLoginTab(tab) {
 // AUTH
 // ══════════════════════════════════════
 function loginClient() {
-  const user = document.getElementById('cl-login-user').value.trim();
+  const rawUser = document.getElementById('cl-login-user').value.trim();
   const pass = document.getElementById('cl-login-pass').value;
 
-  const client = DB.clients.find(c =>
-    (c.cpf === user || c.email === user) && c.senha === pass
-  );
+  if (!rawUser) {
+    toast('Atenção', 'Informe seu CPF ou e-mail.', 'warning');
+    return;
+  }
 
-  if (!client) { toast('Erro', 'CPF/e-mail ou senha inválidos.', 'error'); return; }
+  // Normalize CPF: strip non-digits for comparison
+  const rawDigits = rawUser.replace(/\D/g, '');
+
+  const client = DB.clients.find(c => {
+    const cpfDigits = (c.cpf || '').replace(/\D/g, '');
+    return cpfDigits === rawDigits ||
+      (c.email && c.email.toLowerCase() === rawUser.toLowerCase()) ||
+      c.cpf === rawUser;
+  });
+
+  if (!client) {
+    toast('Erro', 'CPF/e-mail não encontrado. Verifique e tente novamente.', 'error');
+    return;
+  }
+
+  // Cliente adicionado manualmente pelo admin sem senha → completar cadastro
+  if (!client.senha) {
+    window.clientToComplete = client;
+    prepareCompleteRegistration(client);
+    toast('Ativação de Conta', 'Complete seu cadastro para acessar sua conta.', 'info');
+    return;
+  }
+
+  if (!pass) {
+    toast('Atenção', 'Informe sua senha.', 'warning');
+    return;
+  }
+
+  if (client.senha !== pass) {
+    toast('Erro', 'Senha incorreta. Tente novamente.', 'error');
+    return;
+  }
 
   DB.currentUser = { ...client, role: 'client' };
   enterClient(client);
@@ -327,6 +359,210 @@ function registerClient() {
   DB.currentUser = { ...newClient, role: 'client' };
   enterClient(newClient);
   toast('Cadastro realizado!', `Bem-vindo ao ÁgilBank, ${nome.split(' ')[0]}! 🎉`, 'success');
+}
+
+// ══════════════════════════════════════
+// REGISTRATION COMPLETION FOR MANUAL CLIENTS
+// ══════════════════════════════════════
+let capturedCompleteSelfie = null;
+let capturedCompleteLocation = null;
+let completeVideoStream = null;
+
+function prepareCompleteRegistration(client) {
+  // Pre-fill fields
+  document.getElementById('complete-nome').value = client.nome || '';
+  document.getElementById('complete-cpf').value = client.cpf || '';
+  document.getElementById('complete-tel').value = client.tel || '';
+
+  // Reset fields
+  document.getElementById('complete-email').value = '';
+  document.getElementById('complete-rg').value = '';
+  document.getElementById('complete-nasc').value = '';
+  document.getElementById('complete-estado-civil').value = '';
+  document.getElementById('complete-cep').value = '';
+  document.getElementById('complete-cidade').value = '';
+  document.getElementById('complete-estado').value = '';
+  document.getElementById('complete-endereco').value = '';
+  document.getElementById('complete-emprego').value = '';
+  document.getElementById('complete-trabalho').value = '';
+  document.getElementById('complete-renda').value = '';
+  document.getElementById('complete-senha').value = '';
+  document.getElementById('complete-senha2').value = '';
+  document.getElementById('complete-termos').checked = false;
+
+  // Reset photo states
+  capturedCompleteSelfie = null;
+  capturedCompleteLocation = null;
+  if (completeVideoStream) {
+    completeVideoStream.getTracks().forEach(track => track.stop());
+    completeVideoStream = null;
+  }
+
+  document.getElementById('complete-camera-container').style.display = 'none';
+  document.getElementById('btn-complete-take-photo').style.display = 'none';
+  document.getElementById('complete-security-result').style.display = 'none';
+  document.getElementById('btn-complete-start-camera').style.display = 'block';
+
+  goTo('screen-complete-register');
+}
+
+async function startCompleteCapture() {
+  document.getElementById('btn-complete-start-camera').style.display = 'none';
+  document.getElementById('complete-camera-container').style.display = 'block';
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { capturedCompleteLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
+      (err) => { console.warn("GPS error:", err); }
+    );
+  }
+
+  try {
+    completeVideoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+    const videoEl = document.getElementById('complete-camera-feed');
+    videoEl.srcObject = completeVideoStream;
+    document.getElementById('btn-complete-take-photo').style.display = 'block';
+  } catch (err) {
+    toast('Erro de Câmera', 'Não foi possível acessar a câmera. Tente novamente.', 'error');
+    document.getElementById('btn-complete-start-camera').style.display = 'block';
+    document.getElementById('complete-camera-container').style.display = 'none';
+  }
+}
+
+function takeCompletePhoto() {
+  const videoEl = document.getElementById('complete-camera-feed');
+  const canvas = document.getElementById('complete-camera-canvas');
+  canvas.width = videoEl.videoWidth;
+  canvas.height = videoEl.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+
+  capturedCompleteSelfie = canvas.toDataURL('image/jpeg');
+
+  if (completeVideoStream) {
+    completeVideoStream.getTracks().forEach(track => track.stop());
+  }
+
+  document.getElementById('complete-camera-container').style.display = 'none';
+  document.getElementById('btn-complete-take-photo').style.display = 'none';
+
+  const preview = document.getElementById('complete-selfie-preview');
+  preview.src = capturedCompleteSelfie;
+  document.getElementById('complete-security-result').style.display = 'block';
+}
+
+async function buscaCEPComplete() {
+  const cep = document.getElementById('complete-cep')?.value.replace(/\D/g, '');
+  if (cep.length !== 8) return;
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const data = await res.json();
+    if (!data.erro) {
+      document.getElementById('complete-cidade').value = data.localidade || '';
+      document.getElementById('complete-estado').value = data.uf || '';
+      document.getElementById('complete-endereco').value = data.logradouro ? `${data.logradouro}, ` : '';
+    }
+  } catch (e) {}
+}
+
+async function finishCompleteRegistration() {
+  const client = window.clientToComplete;
+  if (!client) {
+    toast('Erro', 'Nenhum cliente para completar cadastro foi encontrado.', 'error');
+    goTo('screen-login');
+    return;
+  }
+
+  const tel = document.getElementById('complete-tel').value.trim();
+  const email = document.getElementById('complete-email').value.trim();
+  const rg = document.getElementById('complete-rg').value.trim();
+  const nasc = document.getElementById('complete-nasc').value;
+  const estadoCivil = document.getElementById('complete-estado-civil').value;
+  const cep = document.getElementById('complete-cep').value.trim();
+  const cidade = document.getElementById('complete-cidade').value.trim();
+  const estado = document.getElementById('complete-estado').value.trim();
+  const endereco = document.getElementById('complete-endereco').value.trim();
+  const emprego = document.getElementById('complete-emprego').value;
+  const trabalho = document.getElementById('complete-trabalho').value.trim();
+  const renda = document.getElementById('complete-renda').value;
+  const senha = document.getElementById('complete-senha').value;
+  const senha2 = document.getElementById('complete-senha2').value;
+  const termos = document.getElementById('complete-termos').checked;
+
+  if (!tel || !email || !rg || !nasc || !cep || !cidade || !estado || !endereco || !senha || !senha2) {
+    toast('Atenção', 'Preencha todos os campos obrigatórios (*).', 'warning');
+    return;
+  }
+
+  if (senha.length < 6) {
+    toast('Atenção', 'A senha deve ter pelo menos 6 caracteres.', 'warning');
+    return;
+  }
+
+  if (senha !== senha2) {
+    toast('Atenção', 'As senhas não coincidem.', 'warning');
+    return;
+  }
+
+  if (!capturedCompleteSelfie) {
+    toast('Atenção', 'A foto de segurança é obrigatória.', 'warning');
+    return;
+  }
+
+  if (!termos) {
+    toast('Atenção', 'Você deve aceitar os termos para prosseguir.', 'warning');
+    return;
+  }
+
+  const existingEmail = DB.clients.find(c => c.id !== client.id && c.email && c.email.toLowerCase() === email.toLowerCase());
+  if (existingEmail) {
+    toast('E-mail em uso', 'Este endereço de e-mail já está cadastrado por outro cliente.', 'error');
+    return;
+  }
+
+  const clients = DB.clients;
+  const targetClientIndex = clients.findIndex(c => c.id === client.id);
+  if (targetClientIndex !== -1) {
+    clients[targetClientIndex].tel = tel;
+    clients[targetClientIndex].email = email;
+    clients[targetClientIndex].rg = rg;
+    clients[targetClientIndex].nasc = nasc;
+    clients[targetClientIndex].estadoCivil = estadoCivil;
+    clients[targetClientIndex].cep = cep;
+    clients[targetClientIndex].cidade = cidade;
+    clients[targetClientIndex].estado = estado;
+    clients[targetClientIndex].endereco = endereco;
+    clients[targetClientIndex].emprego = emprego;
+    clients[targetClientIndex].trabalho = trabalho;
+    clients[targetClientIndex].renda = renda;
+    clients[targetClientIndex].senha = senha;
+    clients[targetClientIndex].selfie = capturedCompleteSelfie;
+    clients[targetClientIndex].location = capturedCompleteLocation;
+
+    const loans = DB.loans;
+    let loanUpdated = false;
+    loans.forEach(l => {
+      if (l.clientId === client.id && !l.selfie) {
+        l.selfie = capturedCompleteSelfie;
+        l.location = capturedCompleteLocation;
+        loanUpdated = true;
+      }
+    });
+
+    DB.clients = clients;
+    if (loanUpdated) {
+      DB.loans = loans;
+    }
+
+    DB.currentUser = { ...clients[targetClientIndex], role: 'client' };
+    window.clientToComplete = null;
+
+    enterClient(clients[targetClientIndex]);
+    toast('Cadastro Ativado!', `Sua conta foi ativada com sucesso, ${client.nome.split(' ')[0]}! 🎉`, 'success');
+  } else {
+    toast('Erro', 'Erro ao encontrar o cliente no sistema.', 'error');
+    goTo('screen-login');
+  }
 }
 
 // ══════════════════════════════════════
@@ -569,25 +805,41 @@ let capturedLocation = null;
 let videoStream = null;
 
 async function startSecurityCapture() {
-  document.getElementById('btn-start-camera').style.display = 'none';
-  document.getElementById('camera-container').style.display = 'block';
-  
+  const cameraBtn = document.getElementById('btn-start-camera');
+  if (cameraBtn) {
+    cameraBtn.textContent = '⏳ Abrindo câmera...';
+    cameraBtn.disabled = true;
+  }
+
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
       (pos) => { capturedLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
-      (err) => { console.warn("GPS error:", err); }
+      (err) => { console.warn('GPS error:', err); }
     );
   }
 
   try {
-    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('Câmera não suportada neste dispositivo/navegador.');
+    }
+    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
     const videoEl = document.getElementById('camera-feed');
     videoEl.srcObject = videoStream;
+    // Only show camera container once stream is ready
+    document.getElementById('camera-container').style.display = 'block';
+    if (cameraBtn) cameraBtn.style.display = 'none';
     document.getElementById('btn-take-photo').style.display = 'block';
   } catch (err) {
-    toast('Erro de Câmera', 'Não foi possível acessar a câmera. Tente novamente.', 'error');
-    document.getElementById('btn-start-camera').style.display = 'block';
+    console.warn('Camera error:', err);
+    if (cameraBtn) {
+      cameraBtn.textContent = '📸 Liberar Câmera';
+      cameraBtn.disabled = false;
+    }
     document.getElementById('camera-container').style.display = 'none';
+    // Show file upload fallback
+    const fallback = document.getElementById('photo-file-fallback');
+    if (fallback) fallback.style.display = 'block';
+    toast('Câmera indisponível', 'Câmera não pôde ser acessada. Você pode enviar uma foto da galeria ou continuar sem foto.', 'warning');
   }
 }
 
@@ -613,6 +865,23 @@ function takePhoto() {
   document.getElementById('security-result').style.display = 'block';
 }
 
+// Load photo from file input as fallback
+function loadPhotoFromFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    capturedSelfie = e.target.result;
+    const preview = document.getElementById('selfie-preview');
+    if (preview) {
+      preview.src = capturedSelfie;
+      document.getElementById('security-result').style.display = 'block';
+    }
+    toast('Foto carregada!', 'Foto da galeria selecionada com sucesso.', 'success');
+  };
+  reader.readAsDataURL(file);
+}
+
 function submitLoanRequest() {
   const user = DB.currentUser;
   if (!user) { toast('Erro', 'Faça login para continuar.', 'error'); return; }
@@ -633,7 +902,8 @@ function submitLoanRequest() {
     toast('Atenção', 'Selecione o motivo do empréstimo.', 'warning'); return;
   }
   if (!capturedSelfie) {
-    toast('Segurança', 'Por favor, libere a câmera e tire a foto de segurança para enviar o pedido.', 'warning'); return;
+    // Selfie is optional but recommended - just warn, don't block
+    toast('Aviso', 'Nenhuma foto de segurança capturada. O pedido será enviado sem foto.', 'info');
   }
 
   const newLoan = {

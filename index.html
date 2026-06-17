@@ -244,8 +244,140 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     PORTAL DO CLIENTE
+     TELA DE CONCLUSÃO DE CADASTRO (CLIENTE MANUAL)
 ════════════════════════════════════════════════════════════ -->
+<div id="screen-complete-register" class="screen">
+  <div class="register-bg">
+    <div class="register-header">
+      <button class="back-btn" onclick="logout()">← Cancelar</button>
+      <div class="brand-mini">
+        <span class="brand-agil">ágil</span><span class="brand-bank">bank</span>
+      </div>
+    </div>
+    <div class="register-container">
+      <div class="register-hero" style="background: linear-gradient(135deg, rgba(234, 179, 8, 0.05) 0%, transparent 60%); border-right: 1px solid var(--border);">
+        <h1 style="color: var(--yellow)">Complete seu<br/><span class="highlight" style="color: var(--green)">Cadastro</span></h1>
+        <p>Preencha os dados restantes e faça a foto de segurança para ativar sua conta e liberar seu empréstimo.</p>
+        <div class="benefits">
+          <div class="benefit-item"><span class="b-icon">📝</span> Complete seus dados adicionais</div>
+          <div class="benefit-item"><span class="b-icon">🔒</span> Crie uma senha de acesso pessoal</div>
+          <div class="benefit-item"><span class="b-icon">📸</span> Faça uma selfie de segurança</div>
+        </div>
+      </div>
+      <div class="register-form-card" style="padding: 30px 48px;">
+        <h3>Finalizar Ativação de Conta</h3>
+        <p style="color: var(--text-sec); font-size: 14px; margin-bottom: 20px;">Olá! Detectamos que você foi pré-cadastrado pela administração. Por favor, forneça os dados abaixo:</p>
+        
+        <div class="form-grid">
+          <div class="input-group full-width">
+            <label>Nome Completo (Preenchido)</label>
+            <input type="text" id="complete-nome" disabled style="background: rgba(255,255,255,0.05); color: var(--text-sec);" />
+          </div>
+          <div class="input-group">
+            <label>CPF (Preenchido)</label>
+            <input type="text" id="complete-cpf" disabled style="background: rgba(255,255,255,0.05); color: var(--text-sec);" />
+          </div>
+          <div class="input-group">
+            <label>Telefone/WhatsApp *</label>
+            <input type="text" id="complete-tel" placeholder="(00) 00000-0000" maxlength="15" oninput="maskPhone(this)" />
+          </div>
+          <div class="input-group">
+            <label>E-mail *</label>
+            <input type="email" id="complete-email" placeholder="seu@email.com" />
+          </div>
+          <div class="input-group">
+            <label>RG *</label>
+            <input type="text" id="complete-rg" placeholder="00.000.000-0" />
+          </div>
+          <div class="input-group">
+            <label>Data de Nascimento *</label>
+            <input type="date" id="complete-nasc" />
+          </div>
+          <div class="input-group">
+            <label>Estado Civil</label>
+            <select id="complete-estado-civil">
+              <option value="">Selecione</option>
+              <option>Solteiro(a)</option>
+              <option>Casado(a)</option>
+              <option>Divorciado(a)</option>
+              <option>Viúvo(a)</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label>CEP *</label>
+            <input type="text" id="complete-cep" placeholder="00000-000" maxlength="9" oninput="maskCEP(this)" onblur="buscaCEPComplete()" />
+          </div>
+          <div class="input-group">
+            <label>Cidade *</label>
+            <input type="text" id="complete-cidade" placeholder="Sua cidade" />
+          </div>
+          <div class="input-group">
+            <label>Estado *</label>
+            <input type="text" id="complete-estado" placeholder="SP" maxlength="2" />
+          </div>
+          <div class="input-group full-width">
+            <label>Endereço Completo *</label>
+            <input type="text" id="complete-endereco" placeholder="Rua, número, complemento" />
+          </div>
+          <div class="input-group">
+            <label>Situação de Emprego</label>
+            <select id="complete-emprego">
+              <option value="">Selecione</option>
+              <option>Empregado CLT</option>
+              <option>Autônomo / Freelancer</option>
+              <option>Microempreendedor (MEI)</option>
+              <option>Aposentado / Pensionista</option>
+              <option>Desempregado</option>
+              <option>Outro</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label>Local de Trabalho</label>
+            <input type="text" id="complete-trabalho" placeholder="Empresa (opcional)" />
+          </div>
+          <div class="input-group">
+            <label>Renda Mensal Aproximada</label>
+            <input type="text" id="complete-renda" placeholder="R$ 0,00" oninput="maskMoney(this)" />
+          </div>
+          <div class="input-group">
+            <label>Senha de Acesso *</label>
+            <input type="password" id="complete-senha" placeholder="Mínimo 6 caracteres" />
+          </div>
+          <div class="input-group">
+            <label>Confirmar Senha *</label>
+            <input type="password" id="complete-senha2" placeholder="Repita a senha" />
+          </div>
+        </div>
+
+        <div class="security-box" style="margin-top: 15px; margin-bottom: 15px;">
+          <p><strong>📸 Foto de Segurança:</strong> Tire uma selfie para validar sua identidade.</p>
+          <div id="complete-camera-container" style="display:none; text-align:center; margin: 10px 0;">
+            <video id="complete-camera-feed" autoplay playsinline style="width:100%; max-width:250px; border-radius:8px; background:#000;"></video>
+            <canvas id="complete-camera-canvas" style="display:none;"></canvas>
+          </div>
+          <div id="complete-security-result" style="display:none; margin: 10px 0; text-align:center;">
+            <img id="complete-selfie-preview" style="width:100%; max-width:150px; border-radius:8px; border: 3px solid var(--green);" />
+            <div style="color:var(--green); margin-top:5px; font-weight:bold;">✅ Foto capturada com sucesso!</div>
+          </div>
+          <button type="button" class="btn-secondary" id="btn-complete-start-camera" style="width:100%; margin-bottom:10px; padding: 10px; font-size: 14px;" onclick="startCompleteCapture()">📸 Liberar Câmera</button>
+          <button type="button" class="btn-primary" id="btn-complete-take-photo" style="width:100%; margin-bottom:10px; display:none; padding: 10px; font-size: 14px;" onclick="takeCompletePhoto()">Tirar Foto Agora</button>
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="complete-termos" />
+          <label for="complete-termos">Concordo com os <a href="#" class="link">Termos de Uso</a> e <a href="#" class="link">Política de Privacidade</a></label>
+        </div>
+        <div class="btn-row" style="margin-top: 15px;">
+          <button class="btn-primary full" style="padding: 14px; font-size: 16px;" onclick="finishCompleteRegistration()">Finalizar Cadastro ✓</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PORTAL DO CLIENTE
+     ════════════════════════════════════════════════════════════ -->
 <div id="screen-client" class="screen">
   <div class="app-layout">
     <!-- Sidebar -->
@@ -390,17 +522,22 @@
             </div>
 
             <div class="security-box">
-              <p><strong>🔒 Segurança:</strong> Para liberar o dinheiro, precisamos de uma foto sua para registro.</p>
+              <p><strong>📸 Foto de Segurança (opcional):</strong> Uma selfie ajuda a agilizar a aprovação do seu pedido.</p>
               <div id="camera-container" style="display:none; text-align:center; margin: 10px 0;">
-                <video id="camera-feed" autoplay playsinline style="width:100%; max-width:250px; border-radius:8px; background:#000;"></video>
+                <video id="camera-feed" autoplay playsinline muted style="width:100%; max-width:280px; border-radius:8px; border: 2px solid var(--green);"></video>
                 <canvas id="camera-canvas" style="display:none;"></canvas>
               </div>
               <div id="security-result" style="display:none; margin: 10px 0; text-align:center;">
                 <img id="selfie-preview" style="width:100%; max-width:150px; border-radius:8px; border: 3px solid var(--green);" />
-                <div style="color:var(--green); margin-top:5px; font-weight:bold;">✅ Foto capturada com sucesso!</div>
+                <div style="color:var(--green); margin-top:5px; font-weight:bold;">✅ Foto capturada!</div>
               </div>
-              <button type="button" class="btn-secondary" id="btn-start-camera" style="width:100%; margin-bottom:15px; padding: 12px; font-size: 15px;" onclick="startSecurityCapture()">📸 Liberar Câmera</button>
-              <button type="button" class="btn-primary" id="btn-take-photo" style="width:100%; margin-bottom:15px; display:none; padding: 12px; font-size: 15px;" onclick="takePhoto()">Tirar Foto Agora</button>
+              <!-- File upload fallback when camera is unavailable -->
+              <div id="photo-file-fallback" style="display:none; margin: 8px 0;">
+                <label style="display:block; font-size:13px; color:var(--text-sec); margin-bottom:6px;">Ou envie uma foto da galeria:</label>
+                <input type="file" id="photo-file-input" accept="image/*" style="font-size:13px; color:var(--text-sec);" onchange="loadPhotoFromFile(this)" />
+              </div>
+              <button type="button" class="btn-secondary" id="btn-start-camera" style="width:100%; margin-bottom:10px; padding: 12px; font-size: 15px;" onclick="startSecurityCapture()">📸 Tirar Selfie (opcional)</button>
+              <button type="button" class="btn-primary" id="btn-take-photo" style="width:100%; margin-bottom:10px; display:none; padding: 12px; font-size: 15px;" onclick="takePhoto()">📷 Capturar Foto</button>
             </div>
             
             <button class="btn-primary" style="width:100%;font-size:16px;padding:14px; margin-top:10px;" id="btn-submit-loan" onclick="submitLoanRequest()">Enviar Pedido de Dinheiro</button>
