@@ -27,7 +27,10 @@ if (isIOS && !isStandalone) {
     const text = document.querySelector('#pwa-install-banner .pwa-text p');
     const installBtn = document.querySelector('#pwa-install-banner .btn-primary-small');
     if (text) text.innerHTML = 'Toque em <b style="font-size:16px;">[↑] Compartilhar</b> e depois em <br><b>[+] Adicionar à Tela de Início</b>.';
-    if (installBtn) installBtn.style.display = 'none'; // Hide install btn on iOS
+    if (installBtn) {
+      installBtn.textContent = 'Instalar';
+      installBtn.style.display = 'inline-block';
+    }
     if (banner) banner.classList.add('show');
   }, 2500);
 } else if (!isIOS) {
@@ -49,6 +52,10 @@ function installApp() {
       console.log('PWA Setup:', choiceResult.outcome);
       deferredPrompt = null;
     });
+    closeInstallBanner();
+  } else {
+    const guide = document.getElementById('modal-install-guide');
+    if (guide) guide.classList.remove('hidden');
     closeInstallBanner();
   }
 }
@@ -725,19 +732,52 @@ function loadAdminOverview() {
   const paidLoans     = loans.filter(l => l.status === 'paid');
   const allApproved   = loans.filter(l => l.status !== 'pending' && l.status !== 'rejected');
 
-  const totalEmprestado = allApproved.reduce((acc, l) => acc + l.valor, 0);
+  const totalEmprestado = activeLoans.concat(overdueLoans).reduce((acc, l) => acc + l.valor, 0);
   const totalAReceber   = activeLoans.concat(overdueLoans).reduce((acc, l) => {
     if (!l.parcelas) return acc;
     return acc + l.parcelas.filter(p => p.status !== 'paid').reduce((a, p) => a + p.valor, 0);
   }, 0);
-  const lucroJuros = allApproved.reduce((acc, l) => acc + (l.totalComJuros || 0) - l.valor, 0);
+
+  // Calcula juros recebidos (lucro realizado) e a receber (lucro pendente)
+  let jurosRecebidos = 0;
+  let jurosAReceber = 0;
+
+  allApproved.forEach(l => {
+    if (!l.parcelas) return;
+    const taxa = l.juros || 0;
+    const tipo = l.tipoModalidade || 'convencional';
+    l.parcelas.forEach(p => {
+      let jurosPortion = 0;
+      if (tipo === 'juros_mensais') {
+        jurosPortion = l.valor * (taxa / 100);
+      } else {
+        const interestTotal = (l.totalComJuros || 0) - l.valor;
+        jurosPortion = l.prazo > 0 ? interestTotal / l.prazo : interestTotal;
+      }
+      jurosPortion = parseFloat(jurosPortion.toFixed(2));
+
+      if (p.status === 'paid') {
+        jurosRecebidos += jurosPortion;
+      } else if (l.status === 'active' || l.status === 'overdue') {
+        jurosAReceber += jurosPortion;
+      }
+    });
+  });
+
+  jurosRecebidos = parseFloat(jurosRecebidos.toFixed(2));
+  jurosAReceber = parseFloat(jurosAReceber.toFixed(2));
 
   document.getElementById('adm-total-emprestado').textContent = formatMoney(totalEmprestado);
   document.getElementById('adm-a-receber').textContent        = formatMoney(totalAReceber);
   document.getElementById('adm-total-clientes').textContent   = clients.length;
   document.getElementById('adm-atrasados').textContent        = overdueLoans.length;
   document.getElementById('adm-emprestimos-ativos').textContent = activeLoans.length;
-  document.getElementById('adm-lucro-juros').textContent      = formatMoney(lucroJuros);
+  
+  const elJurosRec = document.getElementById('adm-juros-recebidos');
+  if (elJurosRec) elJurosRec.textContent = formatMoney(jurosRecebidos);
+  
+  const elJurosPen = document.getElementById('adm-juros-a-receber');
+  if (elJurosPen) elJurosPen.textContent = formatMoney(jurosAReceber);
 
   // Próximos vencimentos (30 dias)
   const today = new Date();
@@ -785,10 +825,10 @@ function loadAdminOverview() {
   const perfEl = document.getElementById('adm-performance');
   const totalLimite = 50000;
   perfEl.innerHTML = [
-    { label: 'Total Emprestado', value: totalEmprestado, max: totalLimite, color: '#22c55e' },
-    { label: 'A Receber', value: totalAReceber, max: totalLimite, color: '#3b82f6' },
-    { label: 'Pago por Clientes', value: allApproved.reduce((a,l) => a + (l.parcelas ? l.parcelas.filter(p=>p.status==='paid').reduce((s,p) => s+p.valor,0) : 0), 0), max: totalLimite, color: '#14b8a6' },
-    { label: 'Lucro em Juros', value: lucroJuros, max: totalLimite, color: '#a855f7' },
+    { label: 'Capital na Rua (Principal)', value: totalEmprestado, max: totalLimite, color: '#22c55e' },
+    { label: 'Total a Receber (Principal + Juros)', value: totalAReceber, max: totalLimite, color: '#3b82f6' },
+    { label: 'Juros Recebidos (Lucro Realizado)', value: jurosRecebidos, max: totalLimite, color: '#14b8a6' },
+    { label: 'Juros a Receber (Lucro Pendente)', value: jurosAReceber, max: totalLimite, color: '#a855f7' },
   ].map(item => `
     <div class="perf-item">
       <div class="perf-label"><span>${item.label}</span><strong>${formatMoney(item.value)}</strong></div>

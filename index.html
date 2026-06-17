@@ -258,6 +258,7 @@
           <div class="nav-item active" id="cnav-dashboard" onclick="clientNav('dashboard')">🏠 Início</div>
           <div class="nav-item" id="cnav-request" onclick="clientNav('request')">💸 Pedir Dinheiro</div>
           <div class="nav-item" id="cnav-my-loans" onclick="clientNav('my-loans')">📋 Meus Pedidos</div>
+          <div class="nav-item" onclick="document.getElementById('modal-install-guide').classList.remove('hidden')">📲 Baixar Aplicativo</div>
       </nav>
       <div class="sidebar-footer">
         <div class="user-card-mini" id="client-user-card"></div>
@@ -512,6 +513,9 @@
         <a class="nav-item" onclick="adminNav('settings')" id="anav-settings">
           <span class="nav-icon">⚙️</span> Configurações
         </a>
+        <a class="nav-item" onclick="document.getElementById('modal-install-guide').classList.remove('hidden')">
+          <span class="nav-icon">📲</span> Baixar Aplicativo
+        </a>
       </nav>
       <div class="sidebar-footer">
         <div class="user-card-mini">👤 Administrador</div>
@@ -547,14 +551,14 @@
           <div class="stat-card green">
             <div class="stat-icon">💵</div>
             <div class="stat-info">
-              <div class="stat-label">Total Emprestado</div>
+              <div class="stat-label">Capital na Rua (Principal)</div>
               <div class="stat-value" id="adm-total-emprestado">R$ 0,00</div>
             </div>
           </div>
           <div class="stat-card blue">
             <div class="stat-icon">📥</div>
             <div class="stat-info">
-              <div class="stat-label">A Receber (com juros)</div>
+              <div class="stat-label">Total a Receber (Principal + Juros)</div>
               <div class="stat-value" id="adm-a-receber">R$ 0,00</div>
             </div>
           </div>
@@ -582,8 +586,15 @@
           <div class="stat-card teal">
             <div class="stat-icon">💹</div>
             <div class="stat-info">
-              <div class="stat-label">Lucro em Juros</div>
-              <div class="stat-value" id="adm-lucro-juros">R$ 0,00</div>
+              <div class="stat-label">Juros Recebidos (Lucro Realizado)</div>
+              <div class="stat-value" id="adm-juros-recebidos">R$ 0,00</div>
+            </div>
+          </div>
+          <div class="stat-card blue">
+            <div class="stat-icon">📈</div>
+            <div class="stat-info">
+              <div class="stat-label">Juros a Receber (Lucro Pendente)</div>
+              <div class="stat-value" id="adm-juros-a-receber">R$ 0,00</div>
             </div>
           </div>
         </div>
@@ -829,6 +840,59 @@
   </div>
 </div>
 
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL COMO INSTALAR APP (PWA GUIDE)
+════════════════════════════════════════════════════════════ -->
+<div id="modal-install-guide" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>📲 Como Baixar e Instalar o App</h3>
+      <button class="modal-close" onclick="closeModal('modal-install-guide')">✕</button>
+    </div>
+    <div class="modal-body" style="padding: 24px; color: var(--text-pri); line-height: 1.6;">
+      <p style="margin-bottom: 16px; font-size: 14px; color: var(--text-sec);">
+        O ÁgilBank é um aplicativo PWA. Siga o passo a passo abaixo para instalar no seu aparelho:
+      </p>
+      
+      <div style="background: var(--navy); padding: 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid var(--border-green);">
+        <h4 style="color: var(--green); display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          🍏 No iPhone (Safari)
+        </h4>
+        <ol style="margin-left: 20px; font-size: 13px;">
+          <li>Toque no botão de <strong>Compartilhar</strong> <span style="font-size: 16px;">[↑]</span> (no menu inferior do Safari).</li>
+          <li>Role a lista de opções para baixo e clique em <strong>Adicionar à Tela de Início</strong> <span style="font-size: 16px;">[+]</span>.</li>
+          <li>Toque em <strong>Adicionar</strong> no canto superior direito.</li>
+        </ol>
+      </div>
+
+      <div style="background: var(--navy); padding: 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid rgba(59,130,246,0.3);">
+        <h4 style="color: var(--blue); display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          🤖 No Android (Chrome)
+        </h4>
+        <ol style="margin-left: 20px; font-size: 13px;">
+          <li>Toque no botão <strong>Instalar</strong> que aparece no topo da tela.</li>
+          <li>Se o botão não funcionar ou não aparecer, toque nos <strong>três pontinhos [⋮]</strong> no canto superior direito do Chrome.</li>
+          <li>Selecione a opção <strong>Instalar aplicativo</strong> ou <strong>Adicionar à tela inicial</strong>.</li>
+        </ol>
+      </div>
+
+      <div style="background: var(--navy); padding: 16px; border-radius: 8px; border: 1px solid var(--border);">
+        <h4 style="color: var(--text-pri); display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          💻 No Computador (Chrome)
+        </h4>
+        <ol style="margin-left: 20px; font-size: 13px;">
+          <li>Olhe para a barra de endereços do navegador (onde fica o link).</li>
+          <li>Clique no ícone de <strong>instalar</strong> (um monitor com uma seta para baixo) no canto direito da barra de endereços.</li>
+          <li>Confirme a instalação.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary full" onclick="closeModal('modal-install-guide')">Entendi</button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
