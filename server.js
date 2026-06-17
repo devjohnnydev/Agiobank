@@ -120,7 +120,7 @@ app.get('*', (req, res) => {
 });
 
 // ─── Start ────────────────────────────────────────────────────
-app.listen(port, async () => {
+app.listen(port, '0.0.0.0', async () => {
   console.log(`🚀 ÁgilBank rodando na porta ${port}`);
   if (pool) {
     console.log('🔌 PostgreSQL conectado via DATABASE_URL');
