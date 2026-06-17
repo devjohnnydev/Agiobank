@@ -1409,8 +1409,87 @@ body {
 }
 
 @media (max-width: 640px) {
-  .sidebar { display: none; }
-  .main-content { margin-left: 0; }
+  .sidebar { 
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: -260px;
+    height: 100vh;
+    z-index: 1000;
+    transition: left 0.3s ease;
+    box-shadow: var(--shadow);
+  }
+  .sidebar.open { left: 0; }
+  .main-content { margin-left: 0; padding-top: 10px; }
   .stats-grid { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }
+  .top-header { padding-left: 20px; }
+  .mobile-menu-btn { display: block; }
+  .mobile-only-header { display: flex !important; }
 }
+
+.mobile-only-header { display: none !important; }
+
+
+/* ══════════════════════════════════════
+   MOBILE & PWA OVERRIDES
+══════════════════════════════════════ */
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-pri);
+  font-size: 24px;
+  cursor: pointer;
+  margin-right: 16px;
+}
+
+/* Sidebar overlay for mobile */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 999;
+  backdrop-filter: blur(2px);
+}
+.sidebar-overlay.active { display: block; }
+
+.pwa-banner {
+  position: fixed;
+  bottom: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 400px;
+  background: var(--navy-card);
+  border: 1px solid var(--border-green);
+  box-shadow: var(--shadow-green);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  z-index: 9999;
+  transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pwa-banner.show { bottom: 20px; }
+
+.pwa-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.pwa-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+}
+.pwa-text h4 { font-size: 16px; color: var(--text-pri); margin-bottom: 4px; }
+.pwa-text p { font-size: 13px; color: var(--text-sec); line-height: 1.4; }
+.pwa-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+

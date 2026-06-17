@@ -5,6 +5,35 @@
 
 'use strict';
 
+let deferredPrompt;
+
+// PWA Install Prompt
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Mostra o banner após 2 segundos
+  setTimeout(() => {
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.classList.add('show');
+  }, 2000);
+});
+
+function installApp() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then((choiceResult) => {
+      console.log('PWA Setup:', choiceResult.outcome);
+      deferredPrompt = null;
+    });
+    closeInstallBanner();
+  }
+}
+
+function closeInstallBanner() {
+  const banner = document.getElementById('pwa-install-banner');
+  if (banner) banner.classList.remove('show');
+}
+
 // ══════════════════════════════════════
 // STATE / DATABASE (localStorage + Server Sync)
 // ══════════════════════════════════════

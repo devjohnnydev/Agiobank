@@ -16,6 +16,26 @@
 <body>
 
 <!-- ═══════════════════════════════════════════════════════════
+     PWA INSTALL BANNER
+════════════════════════════════════════════════════════════ -->
+<div id="pwa-install-banner" class="pwa-banner">
+  <div class="pwa-banner-content">
+    <img src="icon.svg" alt="ÁgilBank Icon" class="pwa-icon" />
+    <div class="pwa-text">
+      <h4>Instalar ÁgilBank</h4>
+      <p>Adicione nosso app à tela inicial para acesso rápido.</p>
+    </div>
+  </div>
+  <div class="pwa-actions">
+    <button class="btn-outline-small" onclick="closeInstallBanner()">Agora não</button>
+    <button class="btn-primary-small" onclick="installApp()">Instalar</button>
+  </div>
+</div>
+
+<div class="sidebar-overlay" id="mobile-overlay" onclick="closeMobileMenu()"></div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
      TELA DE LOGIN / LANDING
 ════════════════════════════════════════════════════════════ -->
 <div id="screen-login" class="screen active">
@@ -247,6 +267,12 @@
 
     <!-- Main Content -->
     <main class="main-content" id="client-main">
+      <header class="top-header mobile-only-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <button class="mobile-menu-btn" onclick="openMobileMenu('client')">☰</button>
+        <div class="brand-mini" style="font-size:1.2rem;">
+          <span class="brand-agil">ágil</span><span class="brand-bank">bank</span>
+        </div>
+      </header>
 
       <!-- Dashboard -->
       <section class="content-section" id="cl-dashboard">
@@ -490,10 +516,16 @@
       </div>
     </aside>
 
-    <!-- Admin Main -->
+    <!-- Main Content -->
     <main class="main-content" id="admin-main">
+      <header class="top-header mobile-only-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <button class="mobile-menu-btn" onclick="openMobileMenu('admin')">☰</button>
+        <div class="brand-mini" style="font-size:1.2rem;">
+          <span class="brand-agil">ágil</span><span class="brand-bank">bank</span>
+        </div>
+      </header>
 
-      <!-- Visão Geral -->
+      <!-- Dashboard -->
       <section class="content-section" id="adm-overview">
         <div class="page-header">
           <div>
