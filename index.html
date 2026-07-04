@@ -64,7 +64,12 @@
         </div>
         <div class="input-group">
           <label>Senha</label>
-          <input type="password" id="cl-login-pass" placeholder="••••••••" />
+          <div class="password-container">
+            <input type="password" id="cl-login-pass" placeholder="••••••••" />
+            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('cl-login-pass', this)" aria-label="Mostrar Senha">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
         </div>
         <button class="btn-primary full" onclick="loginClient()">Entrar</button>
         <div class="divider"><span>ou</span></div>
@@ -80,7 +85,12 @@
         </div>
         <div class="input-group">
           <label>Senha</label>
-          <input type="password" id="adm-login-pass" placeholder="••••••••" />
+          <div class="password-container">
+            <input type="password" id="adm-login-pass" placeholder="••••••••" />
+            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('adm-login-pass', this)" aria-label="Mostrar Senha">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
         </div>
         <button class="btn-primary full" onclick="loginAdmin()">Acessar Painel</button>
         <div class="divider"><span>ou</span></div>
@@ -230,11 +240,21 @@
             </div>
             <div class="input-group">
               <label>Senha *</label>
-              <input type="password" id="reg-senha" placeholder="Mínimo 6 caracteres" />
+              <div class="password-container">
+                <input type="password" id="reg-senha" placeholder="Mínimo 6 caracteres" />
+                <button type="button" class="toggle-password" onclick="togglePasswordVisibility('reg-senha', this)" aria-label="Mostrar Senha">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+              </div>
             </div>
             <div class="input-group">
               <label>Confirmar Senha *</label>
-              <input type="password" id="reg-senha2" placeholder="Repita a senha" />
+              <div class="password-container">
+                <input type="password" id="reg-senha2" placeholder="Repita a senha" />
+                <button type="button" class="toggle-password" onclick="togglePasswordVisibility('reg-senha2', this)" aria-label="Mostrar Senha">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+              </div>
             </div>
           </div>
           <div class="checkbox-group">
@@ -1055,11 +1075,21 @@
             <h3>🔐 Segurança do Sistema</h3>
             <div class="input-group">
               <label>Nova Senha do Admin</label>
-              <input type="password" id="adm-new-pass" placeholder="Nova senha" />
+              <div class="password-container">
+                <input type="password" id="adm-new-pass" placeholder="Nova senha" />
+                <button type="button" class="toggle-password" onclick="togglePasswordVisibility('adm-new-pass', this)" aria-label="Mostrar Senha">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+              </div>
             </div>
             <div class="input-group">
               <label>Confirmar Nova Senha</label>
-              <input type="password" id="adm-new-pass2" placeholder="Repita a senha" />
+              <div class="password-container">
+                <input type="password" id="adm-new-pass2" placeholder="Repita a senha" />
+                <button type="button" class="toggle-password" onclick="togglePasswordVisibility('adm-new-pass2', this)" aria-label="Mostrar Senha">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+              </div>
             </div>
             <button class="btn-primary full" onclick="changeAdminPass()">Alterar Senha</button>
           </div>
@@ -1271,7 +1301,12 @@
       </div>
       <div class="input-group">
         <label>Senha de Acesso</label>
-        <input type="password" id="cred-senha" placeholder="••••••••" />
+        <div class="password-container">
+          <input type="password" id="cred-senha" placeholder="••••••••" />
+          <button type="button" class="toggle-password" onclick="togglePasswordVisibility('cred-senha', this)" aria-label="Mostrar Senha">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </button>
+        </div>
       </div>
     </div>
     <div class="modal-footer">

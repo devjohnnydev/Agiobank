@@ -1500,3 +1500,38 @@ body {
   gap: 12px;
 }
 
+/* Password eye toggle */
+.password-container {
+  position: relative;
+  display: block;
+}
+.password-container input {
+  padding-right: 44px !important;
+}
+.toggle-password {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-sec);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  transition: var(--transition);
+  z-index: 2;
+}
+.toggle-password:hover {
+  color: var(--green);
+}
+.toggle-password svg {
+  width: 18px;
+  height: 18px;
+}
+
+
