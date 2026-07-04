@@ -83,6 +83,8 @@
           <input type="password" id="adm-login-pass" placeholder="••••••••" />
         </div>
         <button class="btn-primary full" onclick="loginAdmin()">Acessar Painel</button>
+        <div class="divider"><span>ou</span></div>
+        <button class="btn-outline full" style="margin-top:10px" onclick="openCreditorRegisterModal()">Criar Conta de Credor (SaaS)</button>
       </div>
     </div>
   </div>
@@ -147,6 +149,12 @@
                 <option>Casado(a)</option>
                 <option>Divorciado(a)</option>
                 <option>Viúvo(a)</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label>Credor / Emprestador *</label>
+              <select id="reg-creditor-id">
+                <option value="default">ÁgilBank Principal (agiotabraga@gmail.com)</option>
               </select>
             </div>
           </div>
@@ -507,6 +515,32 @@
               <textarea id="lr-desc" placeholder="Descreva brevemente para que será usado o dinheiro..." rows="3"></textarea>
             </div>
 
+            <!-- Dados do Avalista / Fiador -->
+            <div style="margin-top: 15px; margin-bottom: 15px; padding: 12px; border: 1px dashed var(--border); border-radius: 8px; background: rgba(255,255,255,0.02)">
+              <h4 style="margin: 0 0 10px 0; font-size: 14px; display: flex; align-items: center; justify-content: space-between;">
+                <span>🛡️ Dados do Avalista / Fiador (Opcional)</span>
+                <span style="font-size: 11px; color: var(--text-muted); font-weight: normal;">Ajuda na aprovação</span>
+              </h4>
+              <div class="input-group" style="margin-bottom: 8px;">
+                <label style="font-size: 11px;">Nome Completo do Avalista</label>
+                <input type="text" id="lr-avalista-nome" placeholder="Nome do avalista" style="padding: 8px; font-size: 13px;" />
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <div class="input-group" style="margin-bottom: 0;">
+                  <label style="font-size: 11px;">CPF do Avalista</label>
+                  <input type="text" id="lr-avalista-cpf" placeholder="000.000.000-00" maxlength="14" oninput="maskCPF(this)" style="padding: 8px; font-size: 13px;" />
+                </div>
+                <div class="input-group" style="margin-bottom: 0;">
+                  <label style="font-size: 11px;">Telefone do Avalista</label>
+                  <input type="text" id="lr-avalista-tel" placeholder="(00) 00000-0000" maxlength="15" oninput="maskPhone(this)" style="padding: 8px; font-size: 13px;" />
+                </div>
+              </div>
+              <div class="input-group" style="margin-top: 8px; margin-bottom: 0;">
+                <label style="font-size: 11px;">Renda Mensal do Avalista</label>
+                <input type="text" id="lr-avalista-renda" placeholder="R$ 0,00" oninput="maskMoney(this)" style="padding: 8px; font-size: 13px;" />
+              </div>
+            </div>
+
             <div class="loan-preview" id="loan-preview">
               <div class="preview-row">
                 <span>Valor solicitado</span>
@@ -733,6 +767,83 @@
               <div class="stat-label">Juros a Receber (Lucro Pendente)</div>
               <div class="stat-value" id="adm-juros-a-receber">R$ 0,00</div>
             </div>
+          </div>
+          <div class="stat-card orange">
+            <div class="stat-icon">💸</div>
+            <div class="stat-info">
+              <div class="stat-label">Comissões Pendentes (A Pagar)</div>
+              <div class="stat-value" id="adm-com-pendentes">R$ 0,00</div>
+            </div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-icon">💰</div>
+            <div class="stat-info">
+              <div class="stat-label">Comissões Pagas</div>
+              <div class="stat-value" id="adm-com-pagas">R$ 0,00</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fechamento Financeiro -->
+        <div class="section-card" style="margin-top: 20px;">
+          <div class="section-card-header">
+            <h3>📊 Fechamento Financeiro & Projeções</h3>
+            <span style="font-size: 12px; color: var(--text-muted);">Relatório completo de fechamento e juros</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-top: 15px;">
+            
+            <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+              <h4 style="margin: 0 0 10px 0; font-size: 13px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
+                <span>📅 Fechamento do Dia (Hoje)</span>
+                <span>☀️</span>
+              </h4>
+              <div style="font-size: 20px; font-weight: 700; color: var(--green);" id="report-hoje-total">R$ 0,00</div>
+              <div style="font-size: 11px; margin-top: 8px; color: var(--text-sec); line-height: 1.5;">
+                Principal: <strong id="report-hoje-principal">R$ 0,00</strong><br/>
+                Juros Período: <strong id="report-hoje-juros">R$ 0,00</strong><br/>
+                Juros Atraso/Diária: <strong id="report-hoje-atraso" style="color: var(--orange);">R$ 0,00</strong>
+              </div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+              <h4 style="margin: 0 0 10px 0; font-size: 13px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
+                <span>📅 Fechamento da Semana</span>
+                <span>🗓️</span>
+              </h4>
+              <div style="font-size: 20px; font-weight: 700; color: var(--blue);" id="report-semana-total">R$ 0,00</div>
+              <div style="font-size: 11px; margin-top: 8px; color: var(--text-sec); line-height: 1.5;">
+                Principal: <strong id="report-semana-principal">R$ 0,00</strong><br/>
+                Juros Período: <strong id="report-semana-juros">R$ 0,00</strong><br/>
+                Juros Atraso/Diária: <strong id="report-semana-atraso" style="color: var(--orange);">R$ 0,00</strong>
+              </div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+              <h4 style="margin: 0 0 10px 0; font-size: 13px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
+                <span>📅 Fechamento do Mês</span>
+                <span>📊</span>
+              </h4>
+              <div style="font-size: 20px; font-weight: 700; color: var(--purple);" id="report-mes-total">R$ 0,00</div>
+              <div style="font-size: 11px; margin-top: 8px; color: var(--text-sec); line-height: 1.5;">
+                Principal: <strong id="report-mes-principal">R$ 0,00</strong><br/>
+                Juros Período: <strong id="report-mes-juros">R$ 0,00</strong><br/>
+                Juros Atraso/Diária: <strong id="report-mes-atraso" style="color: var(--orange);">R$ 0,00</strong>
+              </div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+              <h4 style="margin: 0 0 10px 0; font-size: 13px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
+                <span>🔍 Projeção por Data</span>
+                <input type="date" id="proj-date-select" onchange="updateCustomProjection()" style="font-size: 10px; padding: 2px 4px; border-radius: 4px; background: var(--navy); border: 1px solid var(--border); color: var(--text-pri);" />
+              </h4>
+              <div style="font-size: 20px; font-weight: 700; color: var(--green);" id="report-custom-total">R$ 0,00</div>
+              <div style="font-size: 11px; margin-top: 8px; color: var(--text-sec); line-height: 1.5;">
+                Principal: <strong id="report-custom-principal">R$ 0,00</strong><br/>
+                Juros Período: <strong id="report-custom-juros">R$ 0,00</strong><br/>
+                Juros Atraso/Diária: <strong id="report-custom-atraso" style="color: var(--orange);">R$ 0,00</strong>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -1063,6 +1174,36 @@
     <div class="modal-footer">
       <button class="btn-outline" onclick="closeModal('modal-add-client')">Cancelar</button>
       <button class="btn-primary" onclick="adminAddClient()">Salvar Devedor</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL DE CADASTRO DE CREDOR (SaaS)
+════════════════════════════════════════════════════════════ -->
+<div id="modal-add-creditor" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>💼 Criar Conta de Credor</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-creditor')">✕</button>
+    </div>
+    <div class="modal-body" style="padding: 20px;">
+      <div class="input-group">
+        <label>Nome do Credor (Empresa ou Pessoa)</label>
+        <input type="text" id="cred-nome" placeholder="Ex: Braga Empréstimos" />
+      </div>
+      <div class="input-group">
+        <label>E-mail (Será seu login)</label>
+        <input type="email" id="cred-email" placeholder="credor@email.com" />
+      </div>
+      <div class="input-group">
+        <label>Senha de Acesso</label>
+        <input type="password" id="cred-senha" placeholder="••••••••" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('modal-add-creditor')">Cancelar</button>
+      <button class="btn-primary" onclick="registerCreditor()">Criar Credor & Acessar</button>
     </div>
   </div>
 </div>

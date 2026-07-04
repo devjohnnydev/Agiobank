@@ -171,6 +171,9 @@ const DEFAULT_SETTINGS = {
   smsDiaVcto: true,
   smsAtrasadoFreq: 7,
   adminPass: 'admin123',
+  creditors: [
+    { id: 'default', nome: 'ÁgilBank Principal', email: 'agiotabraga@gmail.com', password: 'Ab@46431194' }
+  ]
 };
 
 let currentLoanId = null; // for modal operations
@@ -199,6 +202,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await _loadState();
   seedData(); // só popula se estiver vazio
+  populateCreditorsDropdowns();
 
   if (loginScreen) loginScreen.style.opacity = '1';
 
@@ -283,19 +287,89 @@ function loginClient() {
 }
 
 function loginAdmin() {
-  const user = document.getElementById('adm-login-user').value.trim();
+  const user = document.getElementById('adm-login-user').value.trim().toLowerCase();
   const pass = document.getElementById('adm-login-pass').value;
   const s = DB.settings;
+  const creditors = s.creditors || DEFAULT_SETTINGS.creditors || [];
 
-  if (
-    (user === 'agiotabraga@gmail.com' && pass === 'Ab@46431194') ||
-    (user === 'admin' && pass === s.adminPass)
-  ) {
-    DB.currentUser = { role: 'admin', nome: 'Administrador' };
+  // Check super admin
+  if (user === 'admin' && pass === (s.adminPass || 'admin123')) {
+    DB.currentUser = { role: 'admin', creditorId: 'all', nome: 'Super Administrador' };
     enterAdmin();
-    toast('Acesso concedido', 'Bem-vindo ao painel administrativo! 🔐', 'success');
+    toast('Acesso concedido', 'Bem-vindo ao painel do Super Admin! 🔐', 'success');
+    return;
+  }
+
+  // Check creditors list
+  const creditor = creditors.find(c => c.email.toLowerCase() === user && c.password === pass);
+  if (creditor) {
+    DB.currentUser = { role: 'admin', creditorId: creditor.id, nome: creditor.nome };
+    enterAdmin();
+    toast('Acesso concedido', `Painel Credor: ${creditor.nome} 💼`, 'success');
   } else {
-    toast('Acesso negado', 'Credenciais de administrador inválidas.', 'error');
+    // Fallback default creditor
+    if (user === 'agiotabraga@gmail.com' && pass === 'Ab@46431194') {
+      DB.currentUser = { role: 'admin', creditorId: 'default', nome: 'ÁgilBank Principal' };
+      enterAdmin();
+      toast('Acesso concedido', 'Bem-vindo ao painel administrativo! 🔐', 'success');
+    } else {
+      toast('Acesso negado', 'Credenciais de administrador inválidas.', 'error');
+    }
+  }
+}
+
+function openCreditorRegisterModal() {
+  document.getElementById('cred-nome').value = '';
+  document.getElementById('cred-email').value = '';
+  document.getElementById('cred-senha').value = '';
+  document.getElementById('modal-add-creditor').classList.remove('hidden');
+}
+
+function registerCreditor() {
+  const nome = document.getElementById('cred-nome').value.trim();
+  const email = document.getElementById('cred-email').value.trim();
+  const senha = document.getElementById('cred-senha').value;
+
+  if (!nome || !email || !senha) {
+    toast('Atenção', 'Preencha todos os campos.', 'warning');
+    return;
+  }
+
+  const s = DB.settings;
+  const creditors = s.creditors || [];
+
+  const existing = creditors.find(c => c.email.toLowerCase() === email.toLowerCase());
+  if (existing) {
+    toast('Atenção', 'Este e-mail já está sendo usado por outro credor.', 'error');
+    return;
+  }
+
+  const newCreditor = {
+    id: 'cred_' + Date.now(),
+    nome,
+    email: email.toLowerCase(),
+    password: senha
+  };
+
+  creditors.push(newCreditor);
+  s.creditors = creditors;
+  DB.settings = s;
+
+  closeModal('modal-add-creditor');
+  toast('Sucesso!', 'Conta de credor criada com sucesso. Acessando painel...', 'success');
+
+  DB.currentUser = { role: 'admin', creditorId: newCreditor.id, nome: newCreditor.nome };
+  enterAdmin();
+  populateCreditorsDropdowns();
+}
+
+function populateCreditorsDropdowns() {
+  const s = DB.settings;
+  const creditors = s.creditors || DEFAULT_SETTINGS.creditors || [];
+
+  const regSel = document.getElementById('reg-creditor-id');
+  if (regSel) {
+    regSel.innerHTML = creditors.map(c => `<option value="${c.id}">${c.nome} (${c.email})</option>`).join('');
   }
 }
 
@@ -342,6 +416,8 @@ function registerClient() {
     toast('Já cadastrado', 'CPF ou e-mail já cadastrado no sistema.', 'error'); return;
   }
 
+  const creditorId = document.getElementById('reg-creditor-id').value;
+
   const newClient = {
     id: 'c' + Date.now(),
     nome, cpf, email, tel, cidade, estado,
@@ -350,6 +426,7 @@ function registerClient() {
     rg: document.getElementById('reg-rg').value,
     estadoCivil: document.getElementById('reg-estado-civil').value,
     cep: document.getElementById('reg-cep').value,
+    creditorId: creditorId || 'default'
   };
 
   const clients = DB.clients;
@@ -906,6 +983,21 @@ function submitLoanRequest() {
     toast('Aviso', 'Nenhuma foto de segurança capturada. O pedido será enviado sem foto.', 'info');
   }
 
+  const avalistaNome = document.getElementById('lr-avalista-nome').value.trim();
+  const avalistaCpf = document.getElementById('lr-avalista-cpf').value.trim();
+  const avalistaTel = document.getElementById('lr-avalista-tel').value.trim();
+  const avalistaRenda = document.getElementById('lr-avalista-renda').value.trim();
+
+  let avalista = null;
+  if (avalistaNome || avalistaCpf || avalistaTel || avalistaRenda) {
+    avalista = {
+      nome: avalistaNome || '—',
+      cpf: avalistaCpf || '—',
+      tel: avalistaTel || '—',
+      renda: avalistaRenda || '—'
+    };
+  }
+
   const newLoan = {
     id: 'l' + Date.now(),
     clientId: user.id,
@@ -919,7 +1011,9 @@ function submitLoanRequest() {
     totalComJuros: null,
     parcelas: null,
     selfie: capturedSelfie,
-    location: capturedLocation
+    location: capturedLocation,
+    avalista: avalista,
+    creditorId: user.creditorId || 'default'
   };
 
   const loans = DB.loans;
@@ -929,6 +1023,10 @@ function submitLoanRequest() {
   document.getElementById('lr-valor').value = '';
   document.getElementById('lr-motivo').value = '';
   document.getElementById('lr-desc').value = '';
+  if (document.getElementById('lr-avalista-nome')) document.getElementById('lr-avalista-nome').value = '';
+  if (document.getElementById('lr-avalista-cpf')) document.getElementById('lr-avalista-cpf').value = '';
+  if (document.getElementById('lr-avalista-tel')) document.getElementById('lr-avalista-tel').value = '';
+  if (document.getElementById('lr-avalista-renda')) document.getElementById('lr-avalista-renda').value = '';
   updateLoanPreview();
 
   capturedSelfie = null;
@@ -993,8 +1091,11 @@ function updateAdminBadges() {
 }
 
 function loadAdminOverview() {
-  const loans = DB.loans;
-  const clients = DB.clients;
+  const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
+  
+  const loans = isSuper ? DB.loans : DB.loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
+  const clients = isSuper ? DB.clients : DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
   const settings = DB.settings;
 
   const activeLoans   = loans.filter(l => l.status === 'active');
@@ -1037,6 +1138,19 @@ function loadAdminOverview() {
   jurosRecebidos = parseFloat(jurosRecebidos.toFixed(2));
   jurosAReceber = parseFloat(jurosAReceber.toFixed(2));
 
+  // Comissão calculation
+  let comissoesPendentes = 0;
+  let comissoesPagas = 0;
+  loans.forEach(l => {
+    if (l.comissao) {
+      if (l.comissao.status === 'paid') {
+        comissoesPagas += l.comissao.total;
+      } else {
+        comissoesPendentes += l.comissao.total;
+      }
+    }
+  });
+
   document.getElementById('adm-total-emprestado').textContent = formatMoney(totalEmprestado);
   document.getElementById('adm-a-receber').textContent        = formatMoney(totalAReceber);
   document.getElementById('adm-total-clientes').textContent   = clients.length;
@@ -1048,6 +1162,12 @@ function loadAdminOverview() {
   
   const elJurosPen = document.getElementById('adm-juros-a-receber');
   if (elJurosPen) elJurosPen.textContent = formatMoney(jurosAReceber);
+
+  const elComPend = document.getElementById('adm-com-pendentes');
+  if (elComPend) elComPend.textContent = formatMoney(comissoesPendentes);
+
+  const elComPag = document.getElementById('adm-com-pagas');
+  if (elComPag) elComPag.textContent = formatMoney(comissoesPagas);
 
   // Próximos vencimentos (30 dias)
   const today = new Date();
@@ -1104,11 +1224,145 @@ function loadAdminOverview() {
       <div class="perf-label"><span>${item.label}</span><strong>${formatMoney(item.value)}</strong></div>
       <div class="perf-bar"><div class="perf-fill" style="width:${Math.min(100, (item.value/item.max)*100).toFixed(1)}%;background:${item.color}"></div></div>
     </div>`).join('');
+  }
+
+  // --- Calcs for Fechamento Financeiro ---
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const todayEnd = new Date(); todayEnd.setHours(23,59,59,999);
+
+  const weekStart = new Date(); weekStart.setHours(0,0,0,0);
+  const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate() + 7); weekEnd.setHours(23,59,59,999);
+
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0,0,0,0);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23,59,59,999);
+
+  const statsHoje = getClosingStatsForRange(activeLoans.concat(overdueLoans), settings, todayStart, todayEnd);
+  const statsSemana = getClosingStatsForRange(activeLoans.concat(overdueLoans), settings, weekStart, weekEnd);
+  const statsMes = getClosingStatsForRange(activeLoans.concat(overdueLoans), settings, startOfMonth, endOfMonth);
+
+  if (document.getElementById('report-hoje-total')) {
+    document.getElementById('report-hoje-total').textContent = formatMoney(statsHoje.total);
+    document.getElementById('report-hoje-principal').textContent = formatMoney(statsHoje.principal);
+    document.getElementById('report-hoje-juros').textContent = formatMoney(statsHoje.juros);
+    document.getElementById('report-hoje-atraso').textContent = formatMoney(statsHoje.atraso);
+  }
+
+  if (document.getElementById('report-semana-total')) {
+    document.getElementById('report-semana-total').textContent = formatMoney(statsSemana.total);
+    document.getElementById('report-semana-principal').textContent = formatMoney(statsSemana.principal);
+    document.getElementById('report-semana-juros').textContent = formatMoney(statsSemana.juros);
+    document.getElementById('report-semana-atraso').textContent = formatMoney(statsSemana.atraso);
+  }
+
+  if (document.getElementById('report-mes-total')) {
+    document.getElementById('report-mes-total').textContent = formatMoney(statsMes.total);
+    document.getElementById('report-mes-principal').textContent = formatMoney(statsMes.principal);
+    document.getElementById('report-mes-juros').textContent = formatMoney(statsMes.juros);
+    document.getElementById('report-mes-atraso').textContent = formatMoney(statsMes.atraso);
+  }
+
+  // Set default date input for custom projection if empty
+  const dateInput = document.getElementById('proj-date-select');
+  if (dateInput && !dateInput.value) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    dateInput.value = tomorrow.toISOString().split('T')[0];
+  }
+  updateCustomProjection();
+}
+
+function calcLateInterest(parcela, taxaAtraso) {
+  if (parcela.status === 'paid') return 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const vcto = new Date(parcela.vcto + 'T12:00:00');
+  vcto.setHours(0, 0, 0, 0);
+  if (today <= vcto) return 0;
+
+  const diffTime = Math.abs(today - vcto);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const interest = parcela.valor * (taxaAtraso / 100) * diffDays;
+  return parseFloat(interest.toFixed(2));
+}
+
+function getClosingStatsForRange(loans, settings, startDate, endDate) {
+  let principal = 0;
+  let juros = 0;
+  let atraso = 0;
+
+  loans.forEach(l => {
+    if (!l.parcelas) return;
+    const taxa = l.juros || 0;
+    const tipo = l.tipoModalidade || 'convencional';
+    const taxaAtraso = settings.taxaAtraso || 1;
+
+    l.parcelas.forEach(p => {
+      const pDate = new Date(p.vcto + 'T12:00:00');
+      pDate.setHours(0, 0, 0, 0);
+
+      if (pDate >= startDate && pDate <= endDate) {
+        if (p.status !== 'paid') {
+          let jurosPortion = 0;
+          if (tipo === 'juros_mensais') {
+            jurosPortion = l.valor * (taxa / 100);
+          } else {
+            const interestTotal = (l.totalComJuros || 0) - l.valor;
+            jurosPortion = l.prazo > 0 ? interestTotal / l.prazo : interestTotal;
+          }
+          jurosPortion = parseFloat(jurosPortion.toFixed(2));
+
+          let princPortion = p.valor - jurosPortion;
+          if (princPortion < 0) princPortion = 0;
+
+          principal += princPortion;
+          juros += jurosPortion;
+
+          const late = calcLateInterest(p, taxaAtraso);
+          atraso += late;
+        }
+      }
+    });
+  });
+
+  return {
+    principal: parseFloat(principal.toFixed(2)),
+    juros: parseFloat(juros.toFixed(2)),
+    atraso: parseFloat(atraso.toFixed(2)),
+    total: parseFloat((principal + juros + atraso).toFixed(2))
+  };
+}
+
+function updateCustomProjection() {
+  const dateInput = document.getElementById('proj-date-select');
+  if (!dateInput || !dateInput.value) return;
+
+  const targetDateStart = new Date(dateInput.value + 'T00:00:00');
+  const targetDateEnd = new Date(dateInput.value + 'T23:59:59');
+
+  const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
+  const loans = isSuper ? DB.loans : DB.loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
+  const activeLoans = loans.filter(l => l.status === 'active');
+  const overdueLoans = loans.filter(l => l.status === 'overdue');
+
+  const settings = DB.settings;
+  const stats = getClosingStatsForRange(activeLoans.concat(overdueLoans), settings, targetDateStart, targetDateEnd);
+
+  if (document.getElementById('report-custom-total')) {
+    document.getElementById('report-custom-total').textContent = formatMoney(stats.total);
+    document.getElementById('report-custom-principal').textContent = formatMoney(stats.principal);
+    document.getElementById('report-custom-juros').textContent = formatMoney(stats.juros);
+    document.getElementById('report-custom-atraso').textContent = formatMoney(stats.atraso);
+  }
 }
 
 function loadPendingRequests() {
-  const pending = DB.loans.filter(l => l.status === 'pending');
-  const clients = DB.clients;
+  const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
+  
+  const pending = DB.loans.filter(l => l.status === 'pending' && (isSuper || l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default')));
+  const clients = isSuper ? DB.clients : DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
   const settings = DB.settings;
   const container = document.getElementById('adm-requests-list');
 
@@ -1187,6 +1441,7 @@ function openApproveModal(loanId) {
 
   const total = calcTotal(loan.valor, defaultRate);
   const parcela = loan.prazo > 0 ? total / loan.prazo : total;
+  const aval = loan.avalista || {};
 
   document.getElementById('modal-approve-content').innerHTML = `
     <div class="approve-grid">
@@ -1196,26 +1451,95 @@ function openApproveModal(loanId) {
       <div class="approve-field"><label>Prazo</label><span>${loan.prazo} ${loan.prazo===1?'mês':'meses'}</span></div>
       <div class="approve-field"><label>Motivo</label><span>${loan.motivo || '—'}</span></div>
       <div class="approve-field"><label>Emprego/Trabalho</label><span>${client.emprego || '—'} ${client.trabalho ? '('+client.trabalho+')' : ''}</span></div>
-      <div class="approve-interest">
-        <label>⚙️ Configuração do Pagamento:</label>
-        <div class="input-group" style="margin-bottom:12px">
-          <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Modalidade:</label>
-          <select id="modal-tipo" onchange="updateModalCalc(${loan.valor}, ${loan.prazo})">
-            <option value="convencional">Parcelas Fixas (Principal + Juros)</option>
-            <option value="juros_mensais">Só Juros Mensais (Principal no Final)</option>
-          </select>
+      
+      <div class="approve-interest" style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 5px;">
+        <label style="font-weight:700;display:block;margin-bottom:8px;">⚙️ Configuração do Pagamento & Juros:</label>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <div class="input-group">
+            <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Modalidade:</label>
+            <select id="modal-tipo" onchange="updateModalCalc(${loan.valor}, ${loan.prazo})">
+              <option value="convencional">Parcelas Fixas (Principal + Juros)</option>
+              <option value="juros_mensais">Só Juros Mensais (Principal no Final)</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">1º Vencimento:</label>
+            <input type="date" id="modal-vcto" value="${getDefaultDate(30)}" />
+          </div>
         </div>
-        <div class="input-group" style="margin-bottom:12px">
-          <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">1º Vencimento:</label>
-          <input type="date" id="modal-vcto" value="${getDefaultDate(30)}" />
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:10px; margin-bottom: 5px;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text-main); cursor:pointer;">
+            <input type="checkbox" id="modal-aprov-avalista" ${loan.avalista ? 'checked' : ''} /> 🛡️ Liberar com Avalista
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text-main); cursor:pointer;">
+            <input type="checkbox" id="modal-aprov-garantia" ${client.garantia ? 'checked' : ''} /> 🚗 Liberar com Garantia
+          </label>
         </div>
-        <div class="interest-row">
-          <input type="number" id="modal-taxa" value="${defaultRate}" min="0" max="200" step="0.5"
-            oninput="updateModalCalc(${loan.valor}, ${loan.prazo})" />
-          <span style="font-size:12px;color:var(--text-muted);margin-right:8px" id="modal-taxa-label">% ao período</span>
-          <span class="calc-result" id="modal-calc">
-            Total: <strong>${formatMoney(total)}</strong> · ${loan.prazo}x de <strong>${formatMoney(parcela)}</strong>
-          </span>
+        <div class="interest-row" style="margin-top:12px; display:flex; align-items:center; gap:8px;">
+          <div style="width: 100px;">
+            <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Taxa (%):</label>
+            <input type="number" id="modal-taxa" value="${defaultRate}" min="0" max="200" step="0.5" oninput="updateModalCalc(${loan.valor}, ${loan.prazo})" />
+          </div>
+          <div style="flex:1; margin-top: 18px;">
+            <span style="font-size:12px;color:var(--text-muted);margin-right:8px" id="modal-taxa-label">% ao período</span>
+            <span class="calc-result" id="modal-calc" style="font-weight:600;">
+              Total: <strong>${formatMoney(total)}</strong> · ${loan.prazo}x de <strong>${formatMoney(parcela)}</strong>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="approve-avalista" style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px;">
+        <label style="font-weight:700;display:block;margin-bottom:8px;">🛡️ Informações do Avalista / Fiador:</label>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <div class="input-group">
+            <label style="font-size:12px;color:var(--text-muted);">Nome do Avalista:</label>
+            <input type="text" id="modal-aval-nome" value="${aval.nome || ''}" placeholder="Nome Completo" />
+          </div>
+          <div class="input-group">
+            <label style="font-size:12px;color:var(--text-muted);">CPF do Avalista:</label>
+            <input type="text" id="modal-aval-cpf" value="${aval.cpf || ''}" placeholder="000.000.000-00" maxlength="14" oninput="maskCPF(this)" />
+          </div>
+          <div class="input-group">
+            <label style="font-size:12px;color:var(--text-muted);">Telefone do Avalista:</label>
+            <input type="text" id="modal-aval-tel" value="${aval.tel || ''}" placeholder="(00) 00000-0000" maxlength="15" oninput="maskPhone(this)" />
+          </div>
+          <div class="input-group">
+            <label style="font-size:12px;color:var(--text-muted);">Renda do Avalista:</label>
+            <input type="text" id="modal-aval-renda" value="${aval.renda || ''}" placeholder="R$ 0,00" oninput="maskMoney(this)" />
+          </div>
+        </div>
+      </div>
+
+      <div class="approve-comissao" style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; margin-bottom: 8px;">
+        <label style="font-weight:700;display:block;margin-bottom:8px;">💰 Comissão do Consultor / Agente:</label>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <div class="input-group">
+            <label style="font-size:12px;color:var(--text-muted);">Nome do Consultor:</label>
+            <input type="text" id="modal-com-agente" placeholder="Ex: João Silva" />
+          </div>
+          <div class="input-group">
+            <label style="font-size:12px;color:var(--text-muted);">Tipo de Comissão:</label>
+            <select id="modal-com-tipo" onchange="updateModalCalc(${loan.valor}, ${loan.prazo})">
+              <option value="nenhuma">Sem comissão</option>
+              <option value="porcentagem">Percentual (% do Principal)</option>
+              <option value="valor">Valor Fixo (R$)</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label style="font-size:12px;color:var(--text-muted);">Valor da Comissão (% ou R$):</label>
+            <input type="number" id="modal-com-valor" value="0" min="0" step="0.1" oninput="updateModalCalc(${loan.valor}, ${loan.prazo})" />
+          </div>
+          <div class="input-group">
+            <label style="font-size:12px;color:var(--text-muted);">Origem da Comissão:</label>
+            <select id="modal-com-origem" onchange="updateModalCalc(${loan.valor}, ${loan.prazo})">
+              <option value="por_fora">Paga separadamente (Por fora)</option>
+              <option value="descontada">Descontada do empréstimo (Líquido)</option>
+            </select>
+          </div>
+        </div>
+        <div id="modal-com-resumo" style="margin-top:10px; font-size:13px; color:var(--text-sec);">
+          Sem comissão · Valor Líquido a Entregar: <strong style="color:var(--green)">${formatMoney(loan.valor)}</strong>
         </div>
       </div>
     </div>`;
@@ -1239,6 +1563,32 @@ function updateModalCalc(valor, prazo) {
     const total = (jurosMensal * prazo) + valor;
     document.getElementById('modal-calc').innerHTML = `Juros: <strong>${formatMoney(jurosMensal)}/mês</strong> · Final: <strong>${formatMoney(valor + jurosMensal)}</strong>`;
   }
+
+  // Comissão & Líquido
+  const comTipo = document.getElementById('modal-com-tipo').value;
+  const comValInput = parseFloat(document.getElementById('modal-com-valor').value) || 0;
+  const comOrigem = document.getElementById('modal-com-origem').value;
+
+  let comTotal = 0;
+  if (comTipo === 'porcentagem') {
+    comTotal = valor * (comValInput / 100);
+  } else if (comTipo === 'valor') {
+    comTotal = comValInput;
+  }
+
+  let liquido = valor;
+  if (comOrigem === 'descontada' && comTipo !== 'nenhuma') {
+    liquido = valor - comTotal;
+  }
+
+  const resumen = document.getElementById('modal-com-resumo');
+  if (resumen) {
+    if (comTipo === 'nenhuma') {
+      resumen.innerHTML = `Sem comissão · Valor Líquido a Entregar: <strong style="color:var(--green)">${formatMoney(valor)}</strong>`;
+    } else {
+      resumen.innerHTML = `Comissão: <strong>${formatMoney(comTotal)}</strong> (${comTipo === 'porcentagem' ? comValInput+'%' : 'Fixo'}) · Origem: <strong>${comOrigem === 'descontada' ? 'Descontada' : 'Por fora'}</strong> · Valor Líquido a Entregar: <strong style="color:var(--green)">${formatMoney(liquido)}</strong>`;
+    }
+  }
 }
 
 function approveLoan() {
@@ -1246,11 +1596,32 @@ function approveLoan() {
   const taxa = parseFloat(document.getElementById('modal-taxa').value) || 0;
   const tipo = document.getElementById('modal-tipo').value;
   const vcto = document.getElementById('modal-vcto').value;
-  approveWithRate(currentLoanId, taxa, tipo, vcto);
+
+  // Avalista
+  const avalNome = document.getElementById('modal-aval-nome').value.trim();
+  const avalCpf = document.getElementById('modal-aval-cpf').value.trim();
+  const avalTel = document.getElementById('modal-aval-tel').value.trim();
+  const avalRenda = document.getElementById('modal-aval-renda').value.trim();
+  let avalista = null;
+  if (avalNome || avalCpf || avalTel || avalRenda) {
+    avalista = { nome: avalNome || '—', cpf: avalCpf || '—', tel: avalTel || '—', renda: avalRenda || '—' };
+  }
+
+  // Comissão
+  const comAgente = document.getElementById('modal-com-agente').value.trim();
+  const comTipo = document.getElementById('modal-com-tipo').value;
+  const comValor = parseFloat(document.getElementById('modal-com-valor').value) || 0;
+  const comOrigem = document.getElementById('modal-com-origem').value;
+
+  // Selective Approvals
+  const avalistaAprovado = document.getElementById('modal-aprov-avalista').checked;
+  const garantiaAprovada = document.getElementById('modal-aprov-garantia').checked;
+
+  approveWithRate(currentLoanId, taxa, tipo, vcto, avalista, { agente: comAgente, tipo: comTipo, valor: comValor, origem: comOrigem }, avalistaAprovado, garantiaAprovada);
   closeModal('modal-approve');
 }
 
-function approveWithRate(loanId, taxa, tipo = 'convencional', primeiroVcto = null) {
+function approveWithRate(loanId, taxa, tipo = 'convencional', primeiroVcto = null, avalista = null, comissaoData = null, avalistaAprovado = false, garantiaAprovada = false) {
   const loans = DB.loans;
   const idx = loans.findIndex(l => l.id === loanId);
   if (idx === -1) return;
@@ -1284,6 +1655,35 @@ function approveWithRate(loanId, taxa, tipo = 'convencional', primeiroVcto = nul
     parcelaDesc = `${formatMoney(jurosMensal)}/mês`;
   }
 
+  // Comissão calculation
+  let comissao = null;
+  if (comissaoData && comissaoData.tipo !== 'nenhuma' && (comissaoData.agente || comissaoData.valor)) {
+    let comTotal = 0;
+    if (comissaoData.tipo === 'porcentagem') {
+      comTotal = parseFloat((l.valor * (comissaoData.valor / 100)).toFixed(2));
+    } else {
+      comTotal = parseFloat(comissaoData.valor.toFixed(2));
+    }
+    comissao = {
+      agente: comissaoData.agente || 'Sem Nome',
+      tipo: comissaoData.tipo,
+      valor: comissaoData.valor,
+      origem: comissaoData.origem,
+      total: comTotal,
+      status: 'pending'
+    };
+  }
+
+  const historico = l.historico || [
+    { status: 'pending', data: l.createdAt || new Date().toISOString(), detalhes: 'Solicitação criada pelo cliente.' }
+  ];
+  
+  historico.push({
+    status: 'active',
+    data: new Date().toISOString(),
+    detalhes: `Aprovado com taxa de ${taxa}%, modalidade ${tipo === 'convencional' ? 'Parcelas Fixas' : 'Só Juros Mensais'}.${comissao ? ` Consultor ${comissao.agente} (Comissão: ${formatMoney(comissao.total)}).` : ''} Decisão: Avalista: ${avalistaAprovado ? 'Liberado' : 'Rejeitado/Não Exigido'}, Garantia: ${garantiaAprovada ? 'Liberada' : 'Rejeitada/Não Exigida'}.`
+  });
+
   loans[idx] = {
     ...l,
     status: 'active',
@@ -1292,6 +1692,11 @@ function approveWithRate(loanId, taxa, tipo = 'convencional', primeiroVcto = nul
     totalComJuros: total,
     parcelas,
     approvedAt: new Date().toISOString(),
+    avalista: avalista || l.avalista,
+    comissao: comissao,
+    historico: historico,
+    avalistaAprovado: avalistaAprovado,
+    garantiaAprovada: garantiaAprovada
   };
 
   DB.loans = loans;
@@ -1342,7 +1747,9 @@ function rejectWithId(loanId) {
 
 function loadAllLoans(filter) {
   if (filter) currentLoansFilter = filter;
-  let loans = DB.loans;
+  const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
+  let loans = isSuper ? DB.loans : DB.loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
 
   const searchVal = document.getElementById('adm-search-loan')?.value.toLowerCase() || '';
 
@@ -1410,6 +1817,73 @@ function openLoanDetail(loanId) {
 
   const pago = loan.parcelas ? loan.parcelas.filter(p => p.status === 'paid').reduce((a,p) => a+p.valor,0) : 0;
 
+  // Calculo de Líquido
+  let comDeduction = 0;
+  if (loan.comissao && loan.comissao.origem === 'descontada') {
+    comDeduction = loan.comissao.total;
+  }
+  const liquidoEntregar = loan.valor - comDeduction;
+
+  const aval = loan.avalista;
+  const avalStatus = loan.avalistaAprovado ? '<span class="status-badge status-paid" style="font-size:10px;padding:2px 6px;">Liberado</span>' : '<span class="status-badge status-rejected" style="font-size:10px;padding:2px 6px;">Rejeitado/Não Exigido</span>';
+  const avalHtml = aval ? `
+    <div style="border: 1px solid var(--border); padding: 12px; border-radius: 6px; margin-top: 15px; background: rgba(255,255,255,0.02)">
+      <h5 style="margin:0 0 8px 0; color:var(--text-main); font-size:13px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
+        <span>🛡️ Avalista / Fiador</span>
+        ${avalStatus}
+      </h5>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px;">
+        <div><strong>Nome:</strong> ${aval.nome}</div>
+        <div><strong>CPF:</strong> ${aval.cpf}</div>
+        <div><strong>Telefone:</strong> ${aval.tel}</div>
+        <div><strong>Renda Mensal:</strong> ${aval.renda}</div>
+      </div>
+    </div>` : '';
+
+  const garStatus = loan.garantiaAprovada ? '<span class="status-badge status-paid" style="font-size:10px;padding:2px 6px;">Liberada</span>' : '<span class="status-badge status-rejected" style="font-size:10px;padding:2px 6px;">Rejeitada/Não Exigida</span>';
+  const garHtml = client.garantia ? `
+    <div style="border: 1px solid var(--border); padding: 12px; border-radius: 6px; margin-top: 15px; background: rgba(255,255,255,0.02)">
+      <h5 style="margin:0 0 8px 0; color:var(--text-main); font-size:13px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
+        <span>🚗 Garantia Oferecida</span>
+        ${garStatus}
+      </h5>
+      <div style="font-size:12px;">
+        <strong>Itens da Garantia:</strong> ${client.garantia}
+      </div>
+    </div>` : '';
+
+  const com = loan.comissao;
+  let comHtml = '';
+  if (com) {
+    const isPaid = com.status === 'paid';
+    comHtml = `
+      <div style="border: 1px solid var(--border); padding: 12px; border-radius: 6px; margin-top: 15px; background: rgba(255,255,255,0.02)">
+        <h5 style="margin:0 0 8px 0; color:var(--text-main); font-size:13px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
+          <span>💰 Comissão do Consultor</span>
+          <span class="status-badge status-${isPaid ? 'paid' : 'pending'}">${isPaid ? 'Paga' : 'Pendente'}</span>
+        </h5>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px; margin-bottom:8px;">
+          <div><strong>Consultor:</strong> ${com.agente}</div>
+          <div><strong>Valor:</strong> ${formatMoney(com.total)} (${com.tipo === 'porcentagem' ? com.valor + '%' : 'Fixo'})</div>
+          <div><strong>Pagamento:</strong> ${com.origem === 'descontada' ? 'Descontada (Líquido)' : 'Por fora'}</div>
+        </div>
+        ${!isPaid ? `<button class="btn-view" style="font-size:11px; padding:4px 8px; margin-top:4px;" onclick="payCommission('${loan.id}')">✓ Registrar Pagamento da Comissão</button>` : ''}
+      </div>`;
+  }
+
+  const hist = loan.historico || [];
+  const histHtml = hist.length ? `
+    <div style="margin-top:15px;">
+      <h5 style="margin:0 0 8px 0; color:var(--text-main); font-size:13px; font-weight:700;">📜 Histórico do Empréstimo</h5>
+      <div style="max-height:100px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; padding:8px; background:rgba(0,0,0,0.2)">
+        ${hist.map(h => `
+          <div style="font-size:11px; margin-bottom:4px; padding-bottom:4px; border-bottom:1px solid rgba(255,255,255,0.03); color:var(--text-sec);">
+            <span style="color:var(--text-muted)">[${formatDateTime(h.data)}]</span> 
+            <strong style="color:var(--blue)">${statusLabel(h.status)}</strong>: ${h.detalhes}
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
   document.getElementById('modal-loan-detail-content').innerHTML = `
     <div class="loan-detail-content">
       <div class="loan-detail-header">
@@ -1417,7 +1891,8 @@ function openLoanDetail(loanId) {
         <p>${client.cpf || ''} · ${client.tel || ''} · ${client.email || ''}</p>
       </div>
       <div class="loan-detail-grid">
-        <div class="ld-field"><label>Valor</label><span>${formatMoney(loan.valor)}</span></div>
+        <div class="ld-field"><label>Valor Principal</label><span>${formatMoney(loan.valor)}</span></div>
+        <div class="ld-field"><label>Valor Líquido</label><span style="color:var(--green);font-weight:700">${formatMoney(liquidoEntregar)}</span></div>
         <div class="ld-field"><label>Prazo</label><span>${loan.prazo} meses</span></div>
         <div class="ld-field"><label>Juros</label><span>${loan.juros != null ? loan.juros + '%' : '—'}</span></div>
         <div class="ld-field"><label>Total c/ Juros</label><span style="color:var(--green)">${loan.totalComJuros ? formatMoney(loan.totalComJuros) : '—'}</span></div>
@@ -1427,8 +1902,14 @@ function openLoanDetail(loanId) {
         <div class="ld-field"><label>Aprovado em</label><span>${loan.approvedAt ? formatDateTime(loan.approvedAt) : '—'}</span></div>
         <div class="ld-field"><label>Status</label><span class="status-badge status-${loan.status}">${statusLabel(loan.status)}</span></div>
       </div>
+      
+      ${avalHtml}
+      ${garHtml}
+      ${comHtml}
+      ${histHtml}
+
       ${loan.parcelas ? `
-        <h4 style="margin-bottom:12px">Parcelas</h4>
+        <h4 style="margin-top:15px; margin-bottom:12px">Parcelas</h4>
         <table class="installment-table">
           <thead><tr><th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Pago em</th><th>Ação</th></tr></thead>
           <tbody>
@@ -1442,7 +1923,7 @@ function openLoanDetail(loanId) {
                 <td>${p.status !== 'paid' ? `<button class="btn-view" style="font-size:11px;padding:4px 8px" onclick="markParcelaPaid('${loan.id}', ${p.n})">✓ Pago</button>` : '✓'}</td>
               </tr>`).join('')}
           </tbody>
-        </table>` : `<p style="color:var(--text-sec);font-size:14px">Nenhuma parcela gerada ainda.</p>`}
+        </table>` : `<p style="color:var(--text-sec);font-size:14px;margin-top:15px;">Nenhuma parcela gerada ainda.</p>`}
     </div>`;
 
   document.getElementById('modal-loan-detail').classList.remove('hidden');
@@ -1478,6 +1959,30 @@ function markParcelaPaid(loanId, parcelaNum) {
   loadAdminOverview();
 }
 
+function payCommission(loanId) {
+  const loans = DB.loans;
+  const idx = loans.findIndex(l => l.id === loanId);
+  if (idx === -1) return;
+
+  if (loans[idx].comissao) {
+    loans[idx].comissao.status = 'paid';
+
+    // Add history log entry
+    const historico = loans[idx].historico || [];
+    historico.push({
+      status: loans[idx].status,
+      data: new Date().toISOString(),
+      detalhes: `Comissão do consultor ${loans[idx].comissao.agente} no valor de ${formatMoney(loans[idx].comissao.total)} marcada como PAGA.`
+    });
+    loans[idx].historico = historico;
+
+    DB.loans = loans;
+    toast('Comissão Paga', 'O pagamento da comissão foi registrado com sucesso.', 'success');
+    openLoanDetail(loanId);
+    loadAdminOverview();
+  }
+}
+
 function markAsPaid() {
   if (!currentLoanId) return;
   const loan = DB.loans.find(l => l.id === currentLoanId);
@@ -1490,7 +1995,9 @@ function markAsPaid() {
 
 function loadAllClients() {
   const searchVal = document.getElementById('adm-search-client')?.value.toLowerCase() || '';
-  let clients = DB.clients;
+  const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
+  let clients = isSuper ? DB.clients : DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
 
   if (searchVal) {
     clients = clients.filter(c =>
@@ -1587,12 +2094,14 @@ window.adminAddClient = function() {
     return;
   }
 
+  const userCred = DB.currentUser || {};
   const clientId = 'c' + Date.now();
   const newClient = {
     id: clientId,
     nome, cpf: cpf || '000.000.000-00', tel, responsavel,
     cidade: 'Não informada', estado: '',
-    cadastro: new Date().toISOString()
+    cadastro: new Date().toISOString(),
+    creditorId: userCred.creditorId || 'default'
   };
 
   const clients = DB.clients;
@@ -1602,7 +2111,8 @@ window.adminAddClient = function() {
   const loanId = 'l' + Date.now();
   const newLoan = {
     id: loanId, clientId, valor, prazo, juros: taxa,
-    status: 'pending', createdAt: new Date().toISOString()
+    status: 'pending', createdAt: new Date().toISOString(),
+    creditorId: userCred.creditorId || 'default'
   };
 
   const loans = DB.loans;
