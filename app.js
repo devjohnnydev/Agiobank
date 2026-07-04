@@ -172,7 +172,7 @@ const DEFAULT_SETTINGS = {
   smsAtrasadoFreq: 7,
   adminPass: 'admin123',
   creditors: [
-    { id: 'default', nome: 'ÁgilBank Principal', email: 'agiotabraga@gmail.com', password: 'Ab@46431194' }
+    { id: 'default', nome: 'ÁgilBank Principal', email: 'agiotabraga@gmail.com', password: 'Ab@46431194', role: 'padrinho' }
   ]
 };
 
@@ -1051,6 +1051,22 @@ function updateLoanPreview() {
 // ══════════════════════════════════════
 function enterAdmin() {
   goTo('screen-admin');
+
+  const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
+
+  // Show/Hide Rede de Credores (only for Super Admin)
+  const redeNav = document.getElementById('anav-rede');
+  if (redeNav) {
+    redeNav.style.display = isSuper ? 'block' : 'none';
+  }
+
+  // Show/Hide Chat (for Padrinho / Afiliado)
+  const chatNav = document.getElementById('anav-chat');
+  if (chatNav) {
+    chatNav.style.display = (!isSuper) ? 'block' : 'none';
+  }
+
   adminNav('overview');
   updateAdminBadges();
   loadSettings();
@@ -1069,6 +1085,8 @@ function adminNav(section) {
     'loans':     'adm-loans',
     'clients':   'adm-clients',
     'sms':       'adm-sms',
+    'rede':      'adm-rede',
+    'chat':      'adm-chat',
     'settings':  'adm-settings',
   };
 
@@ -1081,6 +1099,8 @@ function adminNav(section) {
     case 'loans':    loadAllLoans(); break;
     case 'clients':  loadAllClients(); break;
     case 'sms':      loadSMSPanel(); break;
+    case 'rede':     loadRedePanel(); break;
+    case 'chat':     loadChatPanel(); break;
   }
 }
 
@@ -1093,10 +1113,55 @@ function updateAdminBadges() {
 function loadAdminOverview() {
   const user = DB.currentUser || {};
   const isSuper = user.creditorId === 'all';
-  
-  const loans = isSuper ? DB.loans : DB.loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
-  const clients = isSuper ? DB.clients : DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
   const settings = DB.settings;
+  
+  // Find current creditor info (role, padrinho)
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  const currentCreditor = creditors.find(c => c.id === user.creditorId) || {};
+  const isPadrinho = currentCreditor.role === 'padrinho';
+
+  // Show/Hide Padrinho Filter Select
+  const padrinhoFilterCont = document.getElementById('padrinho-filter-container');
+  if (padrinhoFilterCont) {
+    padrinhoFilterCont.style.display = isPadrinho ? 'flex' : 'none';
+  }
+
+  // Filter selection
+  const filterType = document.getElementById('padrinho-filter-select')?.value || 'rede';
+
+  let loans = [];
+  let clients = [];
+
+  if (isSuper) {
+    loans = DB.loans;
+    clients = DB.clients;
+  } else if (isPadrinho && filterType === 'rede') {
+    // Get affiliates
+    const affiliates = creditors.filter(c => c.padrinhoId === user.creditorId);
+    const affiliateIds = affiliates.map(a => a.id);
+    loans = DB.loans.filter(l => l.creditorId === user.creditorId || affiliateIds.includes(l.creditorId) || (!l.creditorId && user.creditorId === 'default'));
+    clients = DB.clients.filter(c => c.creditorId === user.creditorId || affiliateIds.includes(c.creditorId) || (!c.creditorId && user.creditorId === 'default'));
+  } else {
+    // Just own
+    loans = DB.loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
+    clients = DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
+  }
+
+  // Affiliate warning alert check
+  const alertBanner = document.getElementById('affiliate-alert-banner');
+  if (alertBanner) {
+    if (currentCreditor.role === 'afiliado') {
+      const myOverdueLoans = DB.loans.filter(l => l.status === 'overdue' && (l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default')));
+      if (myOverdueLoans.length > 0) {
+        alertBanner.innerHTML = `⚠️ <strong>Alerta de Pendência</strong>: Você possui ${myOverdueLoans.length} empréstimo(s) em atraso na sua carteira. Existe uma pendência de acerto ativa com seu Padrinho!`;
+        alertBanner.style.display = 'block';
+      } else {
+        alertBanner.style.display = 'none';
+      }
+    } else {
+      alertBanner.style.display = 'none';
+    }
+  }
 
   const activeLoans   = loans.filter(l => l.status === 'active');
   const overdueLoans  = loans.filter(l => l.status === 'overdue');
@@ -1749,7 +1814,22 @@ function loadAllLoans(filter) {
   if (filter) currentLoansFilter = filter;
   const user = DB.currentUser || {};
   const isSuper = user.creditorId === 'all';
-  let loans = isSuper ? DB.loans : DB.loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
+  const settings = DB.settings;
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  const currentCreditor = creditors.find(c => c.id === user.creditorId) || {};
+  const isPadrinho = currentCreditor.role === 'padrinho';
+  const filterType = document.getElementById('padrinho-filter-select')?.value || 'rede';
+
+  let loans = [];
+  if (isSuper) {
+    loans = DB.loans;
+  } else if (isPadrinho && filterType === 'rede') {
+    const affiliates = creditors.filter(c => c.padrinhoId === user.creditorId);
+    const affiliateIds = affiliates.map(a => a.id);
+    loans = DB.loans.filter(l => l.creditorId === user.creditorId || affiliateIds.includes(l.creditorId) || (!l.creditorId && user.creditorId === 'default'));
+  } else {
+    loans = DB.loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
+  }
 
   const searchVal = document.getElementById('adm-search-loan')?.value.toLowerCase() || '';
 
@@ -2574,3 +2654,201 @@ document.addEventListener('click', (e) => {
     currentLoanId = null;
   }
 });
+
+
+// ══════════════════════════════════════
+// SAAS REDE DE CREDORES (Super Admin)
+// ══════════════════════════════════════
+function loadRedePanel() {
+  const s = DB.settings;
+  const creditors = s.creditors || DEFAULT_SETTINGS.creditors || [];
+  const container = document.getElementById('rede-creditors-list');
+  if (!container) return;
+
+  container.innerHTML = creditors.map(c => {
+    const roleLabel = c.role === 'padrinho' 
+      ? '<span style="color:var(--green);font-weight:700">Padrinho (Sponsor)</span>' 
+      : '<span style="color:var(--text-sec)">Afiliado (Affiliate)</span>';
+
+    const linkedPadrinho = c.padrinhoId 
+      ? (creditors.find(p => p.id === c.padrinhoId)?.nome || 'Padrinho Inexistente')
+      : 'Nenhum';
+
+    const roleActions = c.role === 'padrinho'
+      ? `<button class="btn-view" style="font-size:11px;padding:4px 8px;background:#ef4444;color:white;" onclick="changeCreditorRole('${c.id}', 'afiliado')">Despromover a Afiliado</button>`
+      : `<button class="btn-view" style="font-size:11px;padding:4px 8px;background:#22c55e;color:white;" onclick="changeCreditorRole('${c.id}', 'padrinho')">Promover a Padrinho</button>`;
+
+    const linkAction = c.role === 'afiliado'
+      ? `
+        <div style="display:flex; gap:4px; align-items:center;">
+          <select id="link-select-${c.id}" style="font-size:11px; padding:2px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri);">
+            <option value="">Desvincular</option>
+            ${creditors.filter(p => p.role === 'padrinho' && p.id !== c.id).map(p => `<option value="${p.id}" ${c.padrinhoId === p.id ? 'selected' : ''}>${p.nome}</option>`).join('')}
+          </select>
+          <button class="btn-view" style="font-size:11px;padding:4px 6px" onclick="linkCreditorToPadrinho('${c.id}')">Vincular</button>
+        </div>`
+      : '—';
+
+    return `
+      <tr>
+        <td style="font-weight:600">${c.nome}</td>
+        <td>${c.email}</td>
+        <td>${roleLabel}</td>
+        <td>${linkedPadrinho}</td>
+        <td style="display:flex; gap:12px; align-items:center;">
+          ${roleActions}
+          ${linkAction}
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function changeCreditorRole(creditorId, newRole) {
+  const s = DB.settings;
+  const creditors = s.creditors || [];
+  const idx = creditors.findIndex(c => c.id === creditorId);
+  if (idx === -1) return;
+
+  creditors[idx].role = newRole;
+  if (newRole === 'padrinho') {
+    delete creditors[idx].padrinhoId;
+  }
+  
+  s.creditors = creditors;
+  DB.settings = s;
+  toast('Sucesso', 'Cargo do credor atualizado!', 'success');
+  loadRedePanel();
+}
+
+function linkCreditorToPadrinho(creditorId) {
+  const s = DB.settings;
+  const creditors = s.creditors || [];
+  const idx = creditors.findIndex(c => c.id === creditorId);
+  if (idx === -1) return;
+
+  const selectEl = document.getElementById(`link-select-${creditorId}`);
+  if (!selectEl) return;
+
+  creditors[idx].padrinhoId = selectEl.value || null;
+  s.creditors = creditors;
+  DB.settings = s;
+
+  toast('Sucesso', 'Vínculo de Padrinho atualizado!', 'success');
+  loadRedePanel();
+}
+
+
+// ══════════════════════════════════════
+// CHAT MESSENGER (Padrinho & Afiliado)
+// ══════════════════════════════════════
+let activeChatContactId = null;
+
+function loadChatPanel() {
+  const user = DB.currentUser || {};
+  const settings = DB.settings;
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  const currentCreditor = creditors.find(c => c.id === user.creditorId) || {};
+  
+  const contactsList = document.getElementById('chat-contacts-list');
+  if (!contactsList) return;
+
+  let contacts = [];
+  if (currentCreditor.role === 'padrinho') {
+    contacts = creditors.filter(c => c.padrinhoId === user.creditorId);
+  } else if (currentCreditor.role === 'afiliado') {
+    const myPadrinho = creditors.find(c => c.id === currentCreditor.padrinhoId);
+    if (myPadrinho) contacts.push(myPadrinho);
+  }
+
+  if (contacts.length === 0) {
+    contactsList.innerHTML = `<div style="padding:15px; font-size:12px; color:var(--text-muted);">Nenhum contato disponível na sua rede.</div>`;
+    document.getElementById('chat-header-title').textContent = 'Sem conversas disponíveis';
+    document.getElementById('chat-messages-container').innerHTML = '';
+    return;
+  }
+
+  contactsList.innerHTML = contacts.map(c => {
+    const isActive = activeChatContactId === c.id;
+    const bg = isActive ? 'background: rgba(255,255,255,0.08); border-left: 3px solid var(--green);' : '';
+    return `
+      <div class="chat-contact-item" 
+           onclick="selectChatContact('${c.id}')"
+           style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background 0.2s; ${bg}">
+        <div style="font-weight: 600; font-size: 13px; color: var(--text-pri);">${c.nome}</div>
+        <div style="font-size: 11px; color: var(--text-sec);">${c.role === 'padrinho' ? 'Padrinho' : 'Afiliado'}</div>
+      </div>`;
+  }).join('');
+
+  if (activeChatContactId) {
+    selectChatContact(activeChatContactId);
+  }
+}
+
+function selectChatContact(contactId) {
+  activeChatContactId = contactId;
+  
+  // Highlight active contact
+  document.querySelectorAll('.chat-contact-item').forEach(el => el.classList.remove('active'));
+  
+  const settings = DB.settings;
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  const contact = creditors.find(c => c.id === contactId) || {};
+  
+  document.getElementById('chat-header-title').textContent = `Conversando com: ${contact.nome} (${contact.role === 'padrinho' ? 'Padrinho' : 'Afiliado'})`;
+
+  // Render messages
+  const user = DB.currentUser || {};
+  const allMessages = settings.chatMessages || [];
+  
+  const chatMessages = allMessages.filter(m => 
+    (m.fromId === user.creditorId && m.toId === contactId) ||
+    (m.fromId === contactId && m.toId === user.creditorId)
+  );
+
+  const container = document.getElementById('chat-messages-container');
+  if (container) {
+    if (chatMessages.length === 0) {
+      container.innerHTML = `<div style="text-align:center; color:var(--text-muted); font-size:12px; margin-top:20px;">Nenhuma mensagem registrada. Envie um "Olá"!</div>`;
+    } else {
+      container.innerHTML = chatMessages.map(m => {
+        const isMe = m.fromId === user.creditorId;
+        const align = isMe ? 'align-self: flex-end; background: var(--green); color: white;' : 'align-self: flex-start; background: var(--border); color: var(--text-pri);';
+        return `
+          <div style="max-width: 70%; padding: 8px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 4px; ${align}">
+            <div>${m.text}</div>
+            <div style="font-size: 9px; text-align: right; margin-top: 4px; opacity: 0.7;">${new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+          </div>`;
+      }).join('');
+      container.scrollTop = container.scrollHeight;
+    }
+  }
+}
+
+function sendChatMessage() {
+  const user = DB.currentUser || {};
+  if (!activeChatContactId) {
+    toast('Atenção', 'Selecione um contato primeiro.', 'warning');
+    return;
+  }
+
+  const input = document.getElementById('chat-input-text');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const s = DB.settings;
+  const messages = s.chatMessages || [];
+
+  const newMsg = {
+    fromId: user.creditorId,
+    toId: activeChatContactId,
+    text: text,
+    timestamp: new Date().toISOString()
+  };
+
+  messages.push(newMsg);
+  s.chatMessages = messages;
+  DB.settings = s;
+
+  input.value = '';
+  selectChatContact(activeChatContactId);
+}

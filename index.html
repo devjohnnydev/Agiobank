@@ -681,6 +681,12 @@
         <a class="nav-item" onclick="adminNav('sms')" id="anav-sms">
           <span class="nav-icon">📱</span> Central SMS
         </a>
+        <a class="nav-item" onclick="adminNav('rede')" id="anav-rede" style="display: none;">
+          <span class="nav-icon">👥</span> Rede de Credores
+        </a>
+        <a class="nav-item" onclick="adminNav('chat')" id="anav-chat" style="display: none;">
+          <span class="nav-icon">💬</span> Mensagens (Chat)
+        </a>
         <a class="nav-item" onclick="adminNav('settings')" id="anav-settings">
           <span class="nav-icon">⚙️</span> Configurações
         </a>
@@ -713,10 +719,18 @@
             <h1>📊 Visão Geral</h1>
             <p class="page-sub" id="adm-date"></p>
           </div>
-          <div class="header-actions">
-            <button class="btn-outline sm" onclick="exportReport()">📥 Exportar Relatório</button>
+          <div class="header-actions" style="display: flex; gap: 8px; align-items: center;">
+            <div id="padrinho-filter-container" style="display: none; align-items: center; gap: 6px;">
+              <label style="font-size:12px;color:var(--text-muted)">Visualizar:</label>
+              <select id="padrinho-filter-select" onchange="loadAdminOverview()" style="font-size:12px; padding: 4px 8px; border-radius: 4px; background: var(--navy); border: 1px solid var(--border); color: var(--text-pri);">
+                <option value="meu">Apenas Meu Caixa</option>
+                <option value="rede" selected>Toda a Minha Rede</option>
+              </select>
+            </div>
           </div>
         </div>
+
+        <div id="affiliate-alert-banner" style="display:none; margin-top: 15px; margin-bottom: 15px; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #f87171; padding: 12px; border-radius: 6px; font-size: 13px; font-weight: bold;"></div>
 
         <div class="stats-grid">
           <div class="stat-card green">
@@ -1046,6 +1060,63 @@
               <input type="password" id="adm-new-pass2" placeholder="Repita a senha" />
             </div>
             <button class="btn-primary full" onclick="changeAdminPass()">Alterar Senha</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Rede de Credores (Super Admin Only) -->
+      <section class="content-section hidden" id="adm-rede">
+        <div class="page-header">
+          <h1>👥 Rede de Credores (SaaS)</h1>
+          <p class="page-sub">Controle de credores, indicações, apadrinhamentos e permissões globais.</p>
+        </div>
+        <div class="section-card">
+          <h3>Listagem de Credores no Sistema</h3>
+          <div style="overflow-x: auto; margin-top: 15px;">
+            <table class="installment-table" style="width: 100%;">
+              <thead>
+                <tr>
+                  <th>Nome do Credor</th>
+                  <th>E-mail (Login)</th>
+                  <th>Cargo / Função</th>
+                  <th>Padrinho Vinculado</th>
+                  <th>Ações de Permissão</th>
+                </tr>
+              </thead>
+              <tbody id="rede-creditors-list">
+                <!-- populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Mensagens / Chat (Padrinho & Afiliado) -->
+      <section class="content-section hidden" id="adm-chat">
+        <div class="page-header">
+          <h1>💬 Mensagens (Chat Interno)</h1>
+          <p class="page-sub">Troca de mensagens diretas entre Padrinho e Afiliados.</p>
+        </div>
+        <div style="display: grid; grid-template-columns: 280px 1fr; gap: 20px; height: 60vh; background: var(--navy); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
+          <!-- Left sidebar (contacts) -->
+          <div style="border-right: 1px solid var(--border); display: flex; flex-direction: column;">
+            <div style="padding: 12px; font-weight: 700; border-bottom: 1px solid var(--border); font-size: 13px;">Conversas</div>
+            <div id="chat-contacts-list" style="flex: 1; overflow-y: auto;">
+              <!-- populated dynamically -->
+            </div>
+          </div>
+          <!-- Right area (messages thread) -->
+          <div style="display: flex; flex-direction: column; background: rgba(0,0,0,0.1)">
+            <div id="chat-header-title" style="padding: 12px; font-weight: 700; border-bottom: 1px solid var(--border); background: var(--navy); font-size: 13px;">
+              Selecione uma conversa para começar
+            </div>
+            <div id="chat-messages-container" style="flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+              <!-- message bubbles -->
+            </div>
+            <div style="padding: 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; background: var(--navy);">
+              <input type="text" id="chat-input-text" placeholder="Digite uma mensagem..." style="flex: 1; padding: 10px; border-radius: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); color: var(--text-pri);" onkeydown="if(event.key === 'Enter') sendChatMessage()" />
+              <button class="btn-primary" onclick="sendChatMessage()" style="padding: 10px 20px;">Enviar</button>
+            </div>
           </div>
         </div>
       </section>
