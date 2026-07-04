@@ -674,6 +674,7 @@
         </a>
         <a class="nav-item" onclick="adminNav('loans')" id="anav-loans">
           <span class="nav-icon">💰</span> Empréstimos
+          <span class="badge" id="badge-overdue" style="display:none;background:#ef4444;margin-left:auto;">0</span>
         </a>
         <a class="nav-item" onclick="adminNav('clients')" id="anav-clients">
           <span class="nav-icon">👥</span> Clientes
@@ -682,7 +683,7 @@
           <span class="nav-icon">📱</span> Central SMS
         </a>
         <a class="nav-item" onclick="adminNav('rede')" id="anav-rede" style="display: none;">
-          <span class="nav-icon">👥</span> Rede de Credores
+          <span class="nav-icon">🌐</span> Rede de Credores
         </a>
         <a class="nav-item" onclick="adminNav('chat')" id="anav-chat" style="display: none;">
           <span class="nav-icon">💬</span> Mensagens (Chat)
@@ -695,7 +696,8 @@
         </a>
       </nav>
       <div class="sidebar-footer">
-        <div class="user-card-mini">👤 Administrador</div>
+        <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px;" id="admin-user-label">👤 Administrador</div>
+        <div id="sync-status-indicator" style="display:none; font-size:10px; margin-bottom: 6px; align-items: center; gap: 4px;">✅ Salvo</div>
         <button class="btn-logout" onclick="logout()">Sair</button>
       </div>
     </aside>

@@ -71,12 +71,12 @@ function closeInstallBanner() {
 // ══════════════════════════════════════
 
 // Detecta se estamos rodando no servidor (Railway) ou local
-const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  ? '' // usa mesma origem (servidor node local ou fallback)
-  : ''; // em produção, mesma origem
+const API_BASE = '';
 
 let _syncTimeout = null;
+let _periodicSyncInterval = null;
 let _dbReady = false;
+let _isSyncing = false;
 
 // DB opera na memória — sincroniza com servidor quando disponível
 const _mem = {
@@ -93,24 +93,63 @@ const DB = {
   set loans(v)        { _mem.loans = v; _scheduleSync(); _lsSet('ab_loans', v); },
   get smsHistory()    { return _mem.smsHistory; },
   set smsHistory(v)   { _mem.smsHistory = v; _scheduleSync(); _lsSet('ab_sms', v); },
-  get settings()      { return _mem.settings || JSON.parse(localStorage.getItem('ab_settings') || JSON.stringify(DEFAULT_SETTINGS)); },
-  set settings(v)     { _mem.settings = v; _scheduleSync(); _lsSet('ab_settings', v); },
+  get settings()      { return _mem.settings || _mergeSettings({}, DEFAULT_SETTINGS); },
+  set settings(v)     { _mem.settings = _mergeSettings(v, DEFAULT_SETTINGS); _scheduleSync(); _lsSet('ab_settings', _mem.settings); },
   get currentUser()   { return JSON.parse(sessionStorage.getItem('ab_user') || 'null'); },
   set currentUser(v)  { sessionStorage.setItem('ab_user', JSON.stringify(v)); },
 };
+
+// Deep-merge: server/stored data gets DEFAULT_SETTINGS as base to ensure all fields always exist
+function _mergeSettings(incoming, defaults) {
+  const result = { ...defaults };
+  if (!incoming || typeof incoming !== 'object') return result;
+  for (const key of Object.keys(incoming)) {
+    if (incoming[key] !== null && typeof incoming[key] === 'object' && !Array.isArray(incoming[key])) {
+      result[key] = { ...(defaults[key] || {}), ...incoming[key] };
+    } else {
+      result[key] = incoming[key];
+    }
+  }
+  // Always preserve arrays from incoming if they have data
+  if (Array.isArray(incoming.creditors) && incoming.creditors.length > 0) result.creditors = incoming.creditors;
+  if (Array.isArray(incoming.chatMessages)) result.chatMessages = incoming.chatMessages;
+  return result;
+}
 
 function _lsSet(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
 }
 
+function _setSyncStatus(status) {
+  const indicator = document.getElementById('sync-status-indicator');
+  if (!indicator) return;
+  if (status === 'saving') {
+    indicator.innerHTML = '💾 Salvando...';
+    indicator.style.color = 'var(--orange)';
+    indicator.style.display = 'inline-flex';
+  } else if (status === 'saved') {
+    indicator.innerHTML = '✅ Salvo';
+    indicator.style.color = 'var(--green)';
+    indicator.style.display = 'inline-flex';
+    setTimeout(() => { if (indicator) indicator.style.display = 'none'; }, 3000);
+  } else if (status === 'error') {
+    indicator.innerHTML = '⚠️ Offline';
+    indicator.style.color = 'var(--orange)';
+    indicator.style.display = 'inline-flex';
+  }
+}
+
 function _scheduleSync() {
   if (_syncTimeout) clearTimeout(_syncTimeout);
+  _setSyncStatus('saving');
   _syncTimeout = setTimeout(_pushState, 1500); // debounce 1.5s
 }
 
 async function _pushState() {
+  if (_isSyncing) return;
+  _isSyncing = true;
   try {
-    await fetch(API_BASE + '/api/state', {
+    const res = await fetch(API_BASE + '/api/state', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -120,8 +159,16 @@ async function _pushState() {
         settings: _mem.settings || DEFAULT_SETTINGS,
       }),
     });
+    if (res.ok) {
+      _setSyncStatus('saved');
+    } else {
+      _setSyncStatus('error');
+    }
   } catch (e) {
+    _setSyncStatus('error');
     // silently fail — dados continuam no localStorage
+  } finally {
+    _isSyncing = false;
   }
 }
 
@@ -130,28 +177,32 @@ async function _loadState() {
   _mem.clients    = JSON.parse(localStorage.getItem('ab_clients')  || '[]');
   _mem.loans      = JSON.parse(localStorage.getItem('ab_loans')    || '[]');
   _mem.smsHistory = JSON.parse(localStorage.getItem('ab_sms')      || '[]');
-  _mem.settings   = JSON.parse(localStorage.getItem('ab_settings') || JSON.stringify(DEFAULT_SETTINGS));
+  // Deep-merge stored settings into defaults to prevent missing fields
+  const storedSettings = JSON.parse(localStorage.getItem('ab_settings') || '{}');
+  _mem.settings   = _mergeSettings(storedSettings, DEFAULT_SETTINGS);
 
   try {
     const res = await fetch(API_BASE + '/api/state');
     if (res.ok) {
       const data = await res.json();
-      // Só atualiza se o servidor tiver mais dados
-      if (data.clients && data.clients.length >= _mem.clients.length) {
-        _mem.clients    = data.clients;
+
+      // Use most-data strategy: server wins if it has data
+      if (data.clients && data.clients.length > 0) {
+        _mem.clients = data.clients;
         _lsSet('ab_clients', data.clients);
       }
-      if (data.loans && data.loans.length >= _mem.loans.length) {
-        _mem.loans      = data.loans;
+      if (data.loans && data.loans.length > 0) {
+        _mem.loans = data.loans;
         _lsSet('ab_loans', data.loans);
       }
-      if (data.smsHistory && data.smsHistory.length >= _mem.smsHistory.length) {
+      if (data.smsHistory && data.smsHistory.length > 0) {
         _mem.smsHistory = data.smsHistory;
         _lsSet('ab_sms', data.smsHistory);
       }
       if (data.settings && Object.keys(data.settings).length > 0) {
-        _mem.settings   = data.settings;
-        _lsSet('ab_settings', data.settings);
+        // Deep-merge server settings into defaults — server data wins
+        _mem.settings = _mergeSettings(data.settings, DEFAULT_SETTINGS);
+        _lsSet('ab_settings', _mem.settings);
       }
       console.log('✅ Estado carregado do PostgreSQL!');
     }
@@ -159,6 +210,14 @@ async function _loadState() {
     console.warn('⚠️ Servidor offline — usando dados locais');
   }
   _dbReady = true;
+
+  // Start periodic sync every 60 seconds to ensure data is always persisted
+  if (_periodicSyncInterval) clearInterval(_periodicSyncInterval);
+  _periodicSyncInterval = setInterval(() => {
+    if (_dbReady && _mem.clients.length + _mem.loans.length > 0) {
+      _pushState();
+    }
+  }, 60000);
 }
 
 const DEFAULT_SETTINGS = {
@@ -171,6 +230,7 @@ const DEFAULT_SETTINGS = {
   smsDiaVcto: true,
   smsAtrasadoFreq: 7,
   adminPass: 'admin123',
+  chatMessages: [],
   creditors: [
     { id: 'default', nome: 'ÁgilBank Principal', email: 'agiotabraga@gmail.com', password: 'Ab@46431194', role: 'padrinho' }
   ]
@@ -186,7 +246,74 @@ function seedData() {
   if (DB.clients.length > 0) return;
   DB.clients = [];
   DB.loans   = [];
-  DB.settings = DEFAULT_SETTINGS;
+  DB.settings = { ...DEFAULT_SETTINGS };
+}
+
+// ══════════════════════════════════════
+// OVERDUE INSTALLMENTS CHECK
+// ══════════════════════════════════════
+function checkOverdueInstallments() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const loans = DB.loans;
+  let changed = false;
+
+  loans.forEach(loan => {
+    if (loan.status !== 'active' && loan.status !== 'overdue') return;
+    if (!loan.parcelas) return;
+
+    let hasOverdue = false;
+    let allPaid = true;
+
+    loan.parcelas.forEach(p => {
+      if (p.status === 'paid') return;
+      allPaid = false;
+      const vcto = new Date(p.vcto + 'T00:00:00');
+      if (vcto < today) {
+        if (p.status !== 'overdue') {
+          p.status = 'overdue';
+          changed = true;
+        }
+        hasOverdue = true;
+      }
+    });
+
+    const newStatus = allPaid ? 'paid' : (hasOverdue ? 'overdue' : 'active');
+    if (loan.status !== newStatus) {
+      loan.status = newStatus;
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    DB.loans = loans;
+    console.log('⏰ Parcelas e empréstimos atualizados para atraso.');
+  }
+}
+
+// ══════════════════════════════════════
+// IMAGE COMPRESSION (selfie)
+// ══════════════════════════════════════
+function compressImage(dataUrl, maxWidth = 400, quality = 0.7) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width;
+      let h = img.height;
+      if (w > maxWidth) {
+        h = Math.round(h * maxWidth / w);
+        w = maxWidth;
+      }
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl); // fallback
+    img.src = dataUrl;
+  });
 }
 
 // ══════════════════════════════════════
@@ -202,6 +329,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await _loadState();
   seedData(); // só popula se estiver vazio
+  checkOverdueInstallments(); // atualiza parcelas vencidas
   populateCreditorsDropdowns();
 
   if (loginScreen) loginScreen.style.opacity = '1';
@@ -215,6 +343,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Set today's date
   const el = document.getElementById('adm-date');
   if (el) el.textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  // Check overdue installments every 10 minutes
+  setInterval(checkOverdueInstallments, 10 * 60 * 1000);
 });
 
 // ══════════════════════════════════════
@@ -348,7 +479,8 @@ function registerCreditor() {
     id: 'cred_' + Date.now(),
     nome,
     email: email.toLowerCase(),
-    password: senha
+    password: senha,
+    role: 'afiliado'
   };
 
   creditors.push(newCreditor);
@@ -506,7 +638,7 @@ async function startCompleteCapture() {
   }
 }
 
-function takeCompletePhoto() {
+async function takeCompletePhoto() {
   const videoEl = document.getElementById('complete-camera-feed');
   const canvas = document.getElementById('complete-camera-canvas');
   canvas.width = videoEl.videoWidth;
@@ -514,7 +646,8 @@ function takeCompletePhoto() {
   const ctx = canvas.getContext('2d');
   ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
 
-  capturedCompleteSelfie = canvas.toDataURL('image/jpeg');
+  // Compress image to keep payload small
+  capturedCompleteSelfie = await compressImage(canvas.toDataURL('image/jpeg'), 400, 0.7);
 
   if (completeVideoStream) {
     completeVideoStream.getTracks().forEach(track => track.stop());
@@ -920,7 +1053,7 @@ async function startSecurityCapture() {
   }
 }
 
-function takePhoto() {
+async function takePhoto() {
   const videoEl = document.getElementById('camera-feed');
   const canvas = document.getElementById('camera-canvas');
   canvas.width = videoEl.videoWidth;
@@ -928,7 +1061,8 @@ function takePhoto() {
   const ctx = canvas.getContext('2d');
   ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
   
-  capturedSelfie = canvas.toDataURL('image/jpeg');
+  // Compress image to keep payload small
+  capturedSelfie = await compressImage(canvas.toDataURL('image/jpeg'), 400, 0.7);
   
   if (videoStream) {
     videoStream.getTracks().forEach(track => track.stop());
@@ -947,8 +1081,8 @@ function loadPhotoFromFile(input) {
   const file = input.files && input.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = function(e) {
-    capturedSelfie = e.target.result;
+  reader.onload = async function(e) {
+    capturedSelfie = await compressImage(e.target.result, 400, 0.7);
     const preview = document.getElementById('selfie-preview');
     if (preview) {
       preview.src = capturedSelfie;
@@ -1055,17 +1189,20 @@ function enterAdmin() {
   const user = DB.currentUser || {};
   const isSuper = user.creditorId === 'all';
 
+  // Show logged-in creditor name in sidebar footer
+  const userLabel = document.getElementById('admin-user-label');
+  if (userLabel) userLabel.textContent = `👤 ${user.nome || 'Administrador'}`;
+
   // Show/Hide Rede de Credores (only for Super Admin)
   const redeNav = document.getElementById('anav-rede');
-  if (redeNav) {
-    redeNav.style.display = isSuper ? 'block' : 'none';
-  }
+  if (redeNav) redeNav.style.display = isSuper ? 'block' : 'none';
 
-  // Show/Hide Chat (for Padrinho / Afiliado)
+  // Show/Hide Chat (for Padrinho / Afiliado — not for Super Admin)
   const chatNav = document.getElementById('anav-chat');
-  if (chatNav) {
-    chatNav.style.display = (!isSuper) ? 'block' : 'none';
-  }
+  if (chatNav) chatNav.style.display = (!isSuper) ? 'block' : 'none';
+
+  // Run overdue check when admin opens panel
+  checkOverdueInstallments();
 
   adminNav('overview');
   updateAdminBadges();
@@ -1105,9 +1242,18 @@ function adminNav(section) {
 }
 
 function updateAdminBadges() {
-  const pending = DB.loans.filter(l => l.status === 'pending').length;
+  const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
+  const loans = isSuper ? DB.loans : DB.loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
+
+  const pending = loans.filter(l => l.status === 'pending').length;
+  const overdue = loans.filter(l => l.status === 'overdue').length;
+
   const badge = document.getElementById('badge-requests');
   if (badge) { badge.textContent = pending; badge.style.display = pending ? 'inline-block' : 'none'; }
+
+  const overdueEl = document.getElementById('badge-overdue');
+  if (overdueEl) { overdueEl.textContent = overdue; overdueEl.style.display = overdue ? 'inline-block' : 'none'; }
 }
 
 function loadAdminOverview() {
