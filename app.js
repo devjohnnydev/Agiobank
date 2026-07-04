@@ -1435,7 +1435,6 @@ function loadAdminOverview() {
       <div class="perf-label"><span>${item.label}</span><strong>${formatMoney(item.value)}</strong></div>
       <div class="perf-bar"><div class="perf-fill" style="width:${Math.min(100, (item.value/item.max)*100).toFixed(1)}%;background:${item.color}"></div></div>
     </div>`).join('');
-  }
 
   // --- Calcs for Fechamento Financeiro ---
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
