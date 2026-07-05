@@ -4200,4 +4200,183 @@ window.clearSystemData = async function() {
   }, 1000);
 };
 
+// ══════════════════════════════════════
+// LANÇAMENTO DE EMPRÉSTIMO DIRETO
+// ══════════════════════════════════════
+window.openAddDirectLoanModal = function() {
+  const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
+  const settings = DB.settings;
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  const currentCreditor = creditors.find(c => c.id === user.creditorId) || {};
+  const isPadrinho = currentCreditor.role === 'padrinho';
+
+  // Get eligible clients
+  let eligibleClients = [];
+  if (isSuper) {
+    eligibleClients = DB.clients;
+  } else if (isPadrinho) {
+    const affiliates = creditors.filter(c => c.padrinhoId === user.creditorId);
+    const affiliateIds = affiliates.map(a => a.id);
+    eligibleClients = DB.clients.filter(c => c.creditorId === user.creditorId || affiliateIds.includes(c.creditorId) || (!c.creditorId && user.creditorId === 'default'));
+  } else {
+    eligibleClients = DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
+  }
+
+  const clientSelect = document.getElementById('dl-client-id');
+  if (clientSelect) {
+    if (eligibleClients.length === 0) {
+      clientSelect.innerHTML = '<option value="">Nenhum cliente disponível</option>';
+    } else {
+      clientSelect.innerHTML = eligibleClients.map(c => `<option value="${c.id}">${c.nome} (${c.cpf})</option>`).join('');
+    }
+  }
+
+  // Get eligible creditors/caixas
+  let eligibleCreditors = [];
+  if (isSuper) {
+    eligibleCreditors = creditors;
+  } else if (isPadrinho) {
+    const myAffiliates = creditors.filter(c => c.padrinhoId === user.creditorId);
+    eligibleCreditors = [currentCreditor, ...myAffiliates];
+  } else {
+    eligibleCreditors = [currentCreditor];
+  }
+
+  const creditorSelect = document.getElementById('dl-creditor-id');
+  if (creditorSelect) {
+    creditorSelect.innerHTML = eligibleCreditors.map(c => `<option value="${c.id}">${c.nome} (${c.role === 'padrinho' ? 'Padrinho' : 'Afiliado'})</option>`).join('');
+  }
+
+  // Clear inputs
+  document.getElementById('dl-valor').value = '';
+  document.getElementById('dl-taxa').value = '10';
+  document.getElementById('dl-prazo').value = '3';
+  document.getElementById('dl-tipo').value = 'convencional';
+  document.getElementById('dl-vcto').value = getDefaultDate(30);
+  document.getElementById('dl-garantia').value = '';
+  document.getElementById('dl-com-agente').value = '';
+  document.getElementById('dl-com-tipo').value = 'nenhuma';
+  document.getElementById('dl-com-valor').value = '0';
+  document.getElementById('dl-com-origem').value = 'descontada';
+
+  showModal('modal-add-direct-loan');
+};
+
+window.saveDirectLoan = function() {
+  const clientId = document.getElementById('dl-client-id').value;
+  const creditorId = document.getElementById('dl-creditor-id').value;
+  const valor = parseFloat(document.getElementById('dl-valor').value);
+  const taxa = parseFloat(document.getElementById('dl-taxa').value);
+  const prazo = parseInt(document.getElementById('dl-prazo').value);
+  const tipo = document.getElementById('dl-tipo').value;
+  const vcto = document.getElementById('dl-vcto').value;
+  const garantia = document.getElementById('dl-garantia').value.trim();
+
+  // Comissão inputs
+  const comAgente = document.getElementById('dl-com-agente').value.trim();
+  const comTipo = document.getElementById('dl-com-tipo').value;
+  const comValor = parseFloat(document.getElementById('dl-com-valor').value) || 0;
+  const comOrigem = document.getElementById('dl-com-origem').value;
+
+  if (!clientId || !creditorId || isNaN(valor) || isNaN(taxa) || isNaN(prazo) || !vcto) {
+    toast('Atenção', 'Por favor, preencha todos os campos obrigatórios.', 'warning');
+    return;
+  }
+
+  // Generate parcelas
+  let parcelas = [];
+  let total = 0;
+  const dataBase = new Date(vcto + 'T12:00:00');
+
+  if (tipo === 'convencional') {
+    total = calcTotal(valor, taxa);
+    const parcelaVal = parseFloat((total / prazo).toFixed(2));
+    for (let i = 1; i <= prazo; i++) {
+      const pVcto = new Date(dataBase);
+      pVcto.setMonth(pVcto.getMonth() + (i - 1));
+      parcelas.push({ n: i, valor: parcelaVal, vcto: pVcto.toISOString().split('T')[0], status: 'pending' });
+    }
+  } else {
+    const jurosMensal = parseFloat((valor * (taxa / 100)).toFixed(2));
+    total = (jurosMensal * prazo) + valor;
+    for (let i = 1; i <= prazo; i++) {
+      const pVcto = new Date(dataBase);
+      pVcto.setMonth(pVcto.getMonth() + (i - 1));
+      const isLast = i === prazo;
+      const val = isLast ? (valor + jurosMensal) : jurosMensal;
+      parcelas.push({ n: i, valor: val, vcto: pVcto.toISOString().split('T')[0], status: 'pending' });
+    }
+  }
+
+  // Comissão calculation
+  let comissao = null;
+  if (comTipo !== 'nenhuma' && (comAgente || comValor)) {
+    let comTotal = 0;
+    if (comTipo === 'porcentagem') {
+      comTotal = parseFloat((valor * (comValor / 100)).toFixed(2));
+    } else {
+      comTotal = parseFloat(comValor.toFixed(2));
+    }
+    comissao = {
+      agente: comAgente || 'Sem Nome',
+      tipo: comTipo,
+      valor: comValor,
+      origem: comOrigem,
+      total: comTotal,
+      status: 'pending'
+    };
+  }
+
+  // Save client warranty if provided
+  if (garantia) {
+    const clients = DB.clients;
+    const cIdx = clients.findIndex(c => c.id === clientId);
+    if (cIdx !== -1) {
+      clients[cIdx].garantia = garantia;
+      DB.clients = clients;
+    }
+  }
+
+  const user = DB.currentUser || {};
+  const creatorName = user.creditorId === 'all' ? 'Super Admin' : (DB.settings.creditors?.find(c => c.id === user.creditorId)?.nome || 'Admin');
+
+  const newLoan = {
+    id: 'l' + Date.now(),
+    clientId,
+    valor,
+    prazo,
+    motivo: 'Direto / Administrativo',
+    descricao: 'Lançado diretamente no painel administrativo',
+    status: 'active',
+    juros: taxa,
+    tipoModalidade: tipo,
+    totalComJuros: total,
+    parcelas,
+    createdAt: new Date().toISOString(),
+    approvedAt: new Date().toISOString(),
+    selfie: null,
+    location: null,
+    avalista: null,
+    creditorId,
+    avalistaAprovado: false,
+    garantiaAprovada: !!garantia,
+    comissao,
+    historico: [
+      { status: 'active', data: new Date().toISOString(), detalhes: `Lançado diretamente pelo ${creatorName}.` }
+    ]
+  };
+
+  const loans = DB.loans;
+  loans.push(newLoan);
+  DB.loans = loans;
+
+  closeModal('modal-add-direct-loan');
+  toast('Sucesso', 'Empréstimo lançado diretamente com sucesso!', 'success');
+  
+  // Refresh views
+  loadAllLoans();
+  loadAdminOverview();
+};
+
 

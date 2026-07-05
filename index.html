@@ -989,10 +989,13 @@
 
       <!-- Empréstimos -->
       <section class="content-section hidden" id="adm-loans">
-        <div class="page-header">
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
           <h1>💰 Gestão de Empréstimos</h1>
-          <div class="search-bar">
-            <input type="text" id="adm-search-loan" placeholder="🔍 Buscar por nome, CPF..." oninput="filterLoans()" />
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button class="btn-primary" onclick="openAddDirectLoanModal()" style="height:44px; white-space:nowrap;">+ Empréstimo Direto</button>
+            <div class="search-bar" style="margin:0;">
+              <input type="text" id="adm-search-loan" placeholder="🔍 Buscar por nome, CPF..." oninput="filterLoans()" />
+            </div>
           </div>
         </div>
         <div class="filter-tabs">
@@ -1487,8 +1490,92 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     TOAST NOTIFICATIONS
+     MODAL DE EMPRÉSTIMO DIRETO (Admin/Padrinho)
 ════════════════════════════════════════════════════════════ -->
+<div id="modal-add-direct-loan" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>➕ Lançar Empréstimo Direto</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-direct-loan')">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:15px; max-height: 70vh; overflow-y: auto; padding: 5px;">
+      <div class="input-group">
+        <label>Selecionar Cliente</label>
+        <select id="dl-client-id" style="width:100%; padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;"></select>
+      </div>
+      <div class="input-group">
+        <label>Responsável pelo Caixa (Credor)</label>
+        <select id="dl-creditor-id" style="width:100%; padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;"></select>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div class="input-group">
+          <label>Valor Principal (R$)</label>
+          <input type="number" id="dl-valor" min="0" placeholder="1000" style="padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;" />
+        </div>
+        <div class="input-group">
+          <label>Taxa de Juros (% ao mês)</label>
+          <input type="number" id="dl-taxa" min="0" max="100" value="10" style="padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;" />
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div class="input-group">
+          <label>Prazo (meses)</label>
+          <input type="number" id="dl-prazo" min="1" value="3" style="padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;" />
+        </div>
+        <div class="input-group">
+          <label>Modalidade</label>
+          <select id="dl-tipo" style="padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;">
+            <option value="convencional" selected>Parcelas Fixas (Francês/Tabela Fipe)</option>
+            <option value="juros_mensais">Só Juros Mensais (Quita no Final)</option>
+          </select>
+        </div>
+      </div>
+      <div class="input-group">
+        <label>Vencimento da 1ª Parcela</label>
+        <input type="date" id="dl-vcto" style="padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;" />
+      </div>
+      <div class="input-group">
+        <label>Garantia / Itens (Opcional)</label>
+        <input type="text" id="dl-garantia" placeholder="Carro, celular, etc." style="padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;" />
+      </div>
+      <div style="border-top:1px solid var(--border); padding-top:10px; margin-top:5px;">
+        <h5 style="margin:0 0 10px 0; color:var(--text-main); font-size:13px;">💰 Comissão do Consultor (Opcional)</h5>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+          <div class="input-group">
+            <label>Nome do Consultor</label>
+            <input type="text" id="dl-com-agente" placeholder="Consultor" style="padding:8px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;" />
+          </div>
+          <div class="input-group">
+            <label>Tipo de Comissão</label>
+            <select id="dl-com-tipo" style="padding:8px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;">
+              <option value="nenhuma" selected>Nenhuma</option>
+              <option value="porcentagem">Porcentagem (%)</option>
+              <option value="fixo">Fixo (R$)</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="input-group">
+            <label>Valor da Comissão (R$ ou %)</label>
+            <input type="number" id="dl-com-valor" min="0" placeholder="0" style="padding:8px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;" />
+          </div>
+          <div class="input-group">
+            <label>Origem da Comissão</label>
+            <select id="dl-com-origem" style="padding:8px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;">
+              <option value="descontada" selected>Descontada do Líquido</option>
+              <option value="por_fora">Por Fora</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('modal-add-direct-loan')">Cancelar</button>
+      <button class="btn-primary" onclick="saveDirectLoan()">✅ Lançar Empréstimo</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container" class="toast-container"></div>
 
 <script src="app.js"></script>
