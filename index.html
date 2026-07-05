@@ -12,6 +12,15 @@
   <meta name="theme-color" content="#1a1e29" />
   <link rel="icon" type="image/svg+xml" href="icon.svg" />
   <link rel="apple-touch-icon" href="icon.svg" />
+  <script>
+    // Auto-limpeza de cache forçada via sistema
+    if (!localStorage.getItem('system_wiped_v1')) {
+      localStorage.clear();
+      localStorage.setItem('system_wiped_v1', 'true');
+      console.log('Cache local limpo automaticamente.');
+      window.location.reload();
+    }
+  </script>
 </head>
 <body>
 

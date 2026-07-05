@@ -2782,6 +2782,17 @@ function nextStep(step) {
 // ══════════════════════════════════════
 // MODAL
 // ══════════════════════════════════════
+// Reset cache check
+if (window.location.search.includes('reset=1')) {
+  localStorage.clear();
+  window.location.href = '/';
+}
+
+function showModal(id) {
+  const m = document.getElementById(id);
+  m.classList.remove('hidden');
+}
+
 function closeModal(id) {
   document.getElementById(id).classList.add('hidden');
   currentLoanId = null;
