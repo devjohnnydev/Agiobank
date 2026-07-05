@@ -782,7 +782,7 @@
           <div class="header-actions" style="display: flex; gap: 8px; align-items: center;">
             <div id="padrinho-filter-container" style="display: none; align-items: center; gap: 6px;">
               <label style="font-size:12px;color:var(--text-muted)">Visualizar:</label>
-              <select id="padrinho-filter-select" onchange="loadAdminOverview()" style="font-size:12px; padding: 4px 8px; border-radius: 4px; background: var(--navy); border: 1px solid var(--border); color: var(--text-pri);">
+              <select id="padrinho-filter-select" onchange="loadAdminOverview(); if(typeof loadAllLoans==='function') loadAllLoans(); if(typeof loadAllClients==='function') loadAllClients();" style="font-size:12px; padding: 4px 8px; border-radius: 4px; background: var(--navy); border: 1px solid var(--border); color: var(--text-pri);">
                 <option value="meu">Apenas Meu Caixa</option>
                 <option value="rede" selected>Toda a Minha Rede</option>
               </select>
@@ -791,6 +791,28 @@
         </div>
 
         <div id="affiliate-alert-banner" style="display:none; margin-top: 15px; margin-bottom: 15px; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #f87171; padding: 12px; border-radius: 6px; font-size: 13px; font-weight: bold;"></div>
+
+        <!-- Acertos pendentes para Afiliado -->
+        <div id="affiliate-acertos-section" class="section-card" style="display:none; margin-bottom: 20px;">
+          <h3>📊 Meus Acertos com o Padrinho</h3>
+          <div style="overflow-x: auto; margin-top: 15px;">
+            <table class="installment-table" style="width: 100%;">
+              <thead>
+                <tr>
+                  <th>Padrinho</th>
+                  <th>Valor Principal</th>
+                  <th>Vencimento Juros</th>
+                  <th>Juros (%)</th>
+                  <th>Total a Pagar</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="affiliate-acertos-list">
+                <!-- populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
 
         <div class="stats-grid">
           <div class="stat-card green" style="cursor:pointer;" onclick="adminNav('loans')" title="Ver todos os empréstimos ativos">
@@ -921,13 +943,30 @@
           </div>
         </div>
 
-        <!-- Próximos vencimentos -->
+        <!-- Calendário de Cobrança -->
         <div class="section-card">
-          <div class="section-card-header">
-            <h3>📅 Próximos Vencimentos (30 dias)</h3>
-            <button class="btn-outline sm" onclick="sendBulkSMS()">📱 Avisar Todos</button>
+          <div class="section-card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap; gap: 10px;">
+            <h3>📅 Calendário de Cobrança (Vencimentos)</h3>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button class="btn-outline sm" onclick="changeCalendarMonth(-1)" style="padding: 4px 8px; margin-top: 0;">◀</button>
+              <span id="calendar-month-year" style="font-weight:700; font-size:14px; min-width:120px; text-align:center;">Julho 2026</span>
+              <button class="btn-outline sm" onclick="changeCalendarMonth(1)" style="padding: 4px 8px; margin-top: 0;">▶</button>
+              <button class="btn-outline sm" onclick="sendBulkSMS()" style="padding: 4px 8px; margin-top: 0; color: var(--green); border-color: var(--border-green);">📱 Avisar Todos</button>
+            </div>
           </div>
-          <div id="adm-vencimentos" class="vencimentos-list"></div>
+          <div style="display:grid; grid-template-columns: 1fr; gap: 20px; margin-top: 15px;">
+            <!-- Calendar grid -->
+            <div id="calendar-days-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center;">
+              <!-- Handled in JS -->
+            </div>
+            <!-- Daily detail list -->
+            <div id="calendar-day-details" style="border-top: 1px solid var(--border); padding-top: 15px; display:none;">
+              <h4 id="calendar-selected-day-title" style="font-size:14px; margin-bottom:10px; color: var(--green);">Cobranças do dia: 05/07/2026</h4>
+              <div id="calendar-day-loans-list" class="vencimentos-list">
+                <!-- Dynamically populated in JS -->
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Gráfico de performance -->
@@ -1134,13 +1173,19 @@
         </div>
       </section>
 
-      <!-- Rede de Credores (Super Admin Only) -->
+      <!-- Rede de Credores (Super Admin & Padrinho) -->
       <section class="content-section hidden" id="adm-rede">
-        <div class="page-header">
-          <h1>👥 Rede de Credores (SaaS)</h1>
-          <p class="page-sub">Controle de credores, indicações, apadrinhamentos e permissões globais.</p>
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h1>👥 Rede de Credores & Acertos</h1>
+            <p class="page-sub">Controle de credores, afiliados, apadrinhamentos e acertos de juros.</p>
+          </div>
+          <div>
+            <button class="btn-primary" onclick="openAddAcertoModal()" id="btn-add-acerto-top" style="display:none; height:44px; white-space:nowrap;">+ Novo Acerto de Juros</button>
+          </div>
         </div>
-        <div class="section-card">
+
+        <div class="section-card" id="rede-creditors-section">
           <h3>Listagem de Credores no Sistema</h3>
           <div style="overflow-x: auto; margin-top: 15px;">
             <table class="installment-table" style="width: 100%;">
@@ -1154,6 +1199,29 @@
                 </tr>
               </thead>
               <tbody id="rede-creditors-list">
+                <!-- populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="section-card" style="margin-top: 25px;">
+          <h3>📊 Acerto de Juros com Afiliados</h3>
+          <div style="overflow-x: auto; margin-top: 15px;">
+            <table class="installment-table" style="width: 100%;">
+              <thead>
+                <tr>
+                  <th>Afiliado</th>
+                  <th>Padrinho</th>
+                  <th>Valor Principal</th>
+                  <th>Vencimento Juros</th>
+                  <th>Juros (%)</th>
+                  <th>Total (Principal + Juros)</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="rede-acertos-list">
                 <!-- populated dynamically -->
               </tbody>
             </table>
@@ -1327,6 +1395,58 @@
     <div class="modal-footer">
       <button class="btn-outline" onclick="closeModal('modal-add-client')">Cancelar</button>
       <button class="btn-primary" onclick="adminAddClient()">Salvar Devedor</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL DE DETALHES DO CLIENTE
+════════════════════════════════════════════════════════════ -->
+<div id="modal-client-detail" class="modal-overlay hidden">
+  <div class="modal-card large">
+    <div class="modal-header">
+      <h3>👥 Detalhes Completos do Cliente</h3>
+      <button class="modal-close" onclick="closeModal('modal-client-detail')">✕</button>
+    </div>
+    <div id="modal-client-detail-content" style="max-height: 75vh; overflow-y: auto; padding: 20px 10px;"></div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('modal-client-detail')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL NOVO ACERTO DE JUROS (AFILIADOS)
+════════════════════════════════════════════════════════════ -->
+<div id="modal-add-acerto" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>➕ Novo Acerto de Juros (Afiliado)</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-acerto')">✕</button>
+    </div>
+    <div class="modal-body" style="padding: 20px;">
+      <div class="input-group">
+        <label>Selecionar Afiliado</label>
+        <select id="acerto-afiliado-id">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+      <div class="input-group">
+        <label>Valor Principal (Quanto deve / Pegou) (R$)</label>
+        <input type="number" id="acerto-valor" placeholder="Ex: 5000" />
+      </div>
+      <div class="input-group">
+        <label>Taxa de Juros (%)</label>
+        <input type="number" id="acerto-taxa" value="10" step="0.5" />
+      </div>
+      <div class="input-group">
+        <label>Vencimento dos Juros</label>
+        <input type="date" id="acerto-vcto" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('modal-add-acerto')">Cancelar</button>
+      <button class="btn-primary" onclick="saveAcerto()">Salvar Acerto</button>
     </div>
   </div>
 </div>

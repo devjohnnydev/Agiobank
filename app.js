@@ -1251,9 +1251,13 @@ function enterAdmin() {
   const userLabel = document.getElementById('admin-user-label');
   if (userLabel) userLabel.textContent = `👤 ${user.nome || 'Administrador'}`;
 
-  // Show/Hide Rede de Credores (only for Super Admin)
+  // Show/Hide Rede de Credores (for Super Admin or Padrinho)
+  const settings = DB.settings;
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  const currentCreditor = creditors.find(c => c.id === user.creditorId) || {};
+  const isPadrinho = currentCreditor.role === 'padrinho';
   const redeNav = document.getElementById('anav-rede');
-  if (redeNav) redeNav.style.display = isSuper ? 'block' : 'none';
+  if (redeNav) redeNav.style.display = (isSuper || isPadrinho) ? 'block' : 'none';
 
   // Show Chat for all admin roles (Super Admin sees all chats, others see their network)
   const chatNav = document.getElementById('anav-chat');
@@ -1347,37 +1351,97 @@ function loadAdminOverview() {
   const currentCreditor = creditors.find(c => c.id === user.creditorId) || {};
   const isPadrinho = currentCreditor.role === 'padrinho';
 
-  // Show/Hide Padrinho Filter Select
+  // Show/Hide Padrinho Filter Select & Populate Options
+  const padrinhoFilterSelect = document.getElementById('padrinho-filter-select');
   const padrinhoFilterCont = document.getElementById('padrinho-filter-container');
-  if (padrinhoFilterCont) {
-    padrinhoFilterCont.style.display = isPadrinho ? 'flex' : 'none';
+
+  if (padrinhoFilterCont && padrinhoFilterSelect) {
+    if (!padrinhoFilterSelect.dataset.populated || padrinhoFilterSelect.dataset.userRole !== (isSuper ? "super" : (currentCreditor.role || "admin"))) {
+      padrinhoFilterSelect.dataset.populated = "true";
+      padrinhoFilterSelect.dataset.userRole = isSuper ? "super" : (currentCreditor.role || "admin");
+
+      let html = '';
+      if (isSuper) {
+        html += '<option value="all">Toda a Rede (Geral)</option>';
+        const padrinhos = creditors.filter(c => c.role === 'padrinho');
+        if (padrinhos.length > 0) {
+          html += '<optgroup label="Padrinhos">';
+          padrinhos.forEach(p => {
+            html += `<option value="cred_${p.id}">${p.nome}</option>`;
+          });
+          html += '</optgroup>';
+        }
+        const affiliates = creditors.filter(c => c.role === 'afiliado');
+        if (affiliates.length > 0) {
+          html += '<optgroup label="Afiliados">';
+          affiliates.forEach(a => {
+            html += `<option value="cred_${a.id}">${a.nome}</option>`;
+          });
+          html += '</optgroup>';
+        }
+      } else if (isPadrinho) {
+        html += '<option value="rede" selected>Toda a Minha Rede</option>';
+        html += '<option value="meu">Apenas Meu Caixa</option>';
+        const myAffiliates = creditors.filter(c => c.padrinhoId === user.creditorId);
+        if (myAffiliates.length > 0) {
+          html += '<optgroup label="Meus Afiliados">';
+          myAffiliates.forEach(a => {
+            html += `<option value="cred_${a.id}">${a.nome}</option>`;
+          });
+          html += '</optgroup>';
+        }
+      } else {
+        html += '<option value="meu">Apenas Meu Caixa</option>';
+      }
+      padrinhoFilterSelect.innerHTML = html;
+    }
+
+    padrinhoFilterCont.style.display = (isSuper || isPadrinho) ? 'flex' : 'none';
   }
 
   // Filter selection
-  const filterType = document.getElementById('padrinho-filter-select')?.value || 'rede';
+  const filterType = padrinhoFilterSelect?.value || 'rede';
 
   let loans = [];
   let clients = [];
 
   if (isSuper) {
-    loans = DB.loans;
-    clients = DB.clients;
-  } else if (isPadrinho && filterType === 'rede') {
-    // Get affiliates
-    const affiliates = creditors.filter(c => c.padrinhoId === user.creditorId);
-    const affiliateIds = affiliates.map(a => a.id);
-    loans = DB.loans.filter(l => l.creditorId === user.creditorId || affiliateIds.includes(l.creditorId) || (!l.creditorId && user.creditorId === 'default'));
-    clients = DB.clients.filter(c => c.creditorId === user.creditorId || affiliateIds.includes(c.creditorId) || (!c.creditorId && user.creditorId === 'default'));
+    if (filterType === 'all' || filterType === 'rede' || filterType === 'meu' || !filterType) {
+      loans = DB.loans;
+      clients = DB.clients;
+    } else if (filterType.startsWith('cred_')) {
+      const targetCreditorId = filterType.replace('cred_', '');
+      loans = DB.loans.filter(l => l.creditorId === targetCreditorId || (!l.creditorId && targetCreditorId === 'default'));
+      clients = DB.clients.filter(c => c.creditorId === targetCreditorId || (!c.creditorId && targetCreditorId === 'default'));
+    }
+  } else if (isPadrinho) {
+    if (filterType === 'rede') {
+      const affiliates = creditors.filter(c => c.padrinhoId === user.creditorId);
+      const affiliateIds = affiliates.map(a => a.id);
+      loans = DB.loans.filter(l => l.creditorId === user.creditorId || affiliateIds.includes(l.creditorId) || (!l.creditorId && user.creditorId === 'default'));
+      clients = DB.clients.filter(c => c.creditorId === user.creditorId || affiliateIds.includes(c.creditorId) || (!c.creditorId && user.creditorId === 'default'));
+    } else if (filterType === 'meu') {
+      loans = DB.loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
+      clients = DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
+    } else if (filterType.startsWith('cred_')) {
+      const targetCreditorId = filterType.replace('cred_', '');
+      loans = DB.loans.filter(l => l.creditorId === targetCreditorId || (!l.creditorId && targetCreditorId === 'default'));
+      clients = DB.clients.filter(c => c.creditorId === targetCreditorId || (!c.creditorId && targetCreditorId === 'default'));
+    }
   } else {
     // Just own
     loans = DB.loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
     clients = DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
   }
 
-  // Affiliate warning alert check
+  // Affiliate warning alert check and acertos list
   const alertBanner = document.getElementById('affiliate-alert-banner');
-  if (alertBanner) {
-    if (currentCreditor.role === 'afiliado') {
+  const affiliateAcertosSec = document.getElementById('affiliate-acertos-section');
+  const affiliateAcertosList = document.getElementById('affiliate-acertos-list');
+
+  if (currentCreditor.role === 'afiliado') {
+    // Show alert banner if there are overdue loans
+    if (alertBanner) {
       const myOverdueLoans = DB.loans.filter(l => l.status === 'overdue' && (l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default')));
       if (myOverdueLoans.length > 0) {
         alertBanner.innerHTML = `⚠️ <strong>Alerta de Pendência</strong>: Você possui ${myOverdueLoans.length} empréstimo(s) em atraso na sua carteira. Existe uma pendência de acerto ativa com seu Padrinho!`;
@@ -1385,9 +1449,39 @@ function loadAdminOverview() {
       } else {
         alertBanner.style.display = 'none';
       }
-    } else {
-      alertBanner.style.display = 'none';
     }
+
+    // Render affiliate acertos
+    if (affiliateAcertosSec && affiliateAcertosList) {
+      affiliateAcertosSec.style.display = 'block';
+      const acertos = settings.acertosAfiliados || [];
+      const myAcertos = acertos.filter(a => a.afiliadoId === user.creditorId);
+
+      if (myAcertos.length === 0) {
+        affiliateAcertosList.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-sec);">Nenhum acerto de juros registrado com seu Padrinho.</td></tr>`;
+      } else {
+        affiliateAcertosList.innerHTML = myAcertos.map(a => {
+          const padrinhoNome = creditors.find(p => p.id === a.padrinhoId)?.nome || 'ÁgilBank Principal';
+          const total = a.valorPrincipal * (1 + a.taxaJuros / 100);
+          const statusBadge = a.status === 'paid' 
+            ? '<span class="status-badge status-active">✓ PAGO</span>' 
+            : '<span class="status-badge status-overdue">⏳ PENDENTE</span>';
+
+          return `
+            <tr>
+              <td style="font-weight:600">${padrinhoNome}</td>
+              <td>${formatMoney(a.valorPrincipal)}</td>
+              <td>${formatDate(a.vencimentoJuros)}</td>
+              <td>${a.taxaJuros}%</td>
+              <td style="font-weight:700;color:var(--green)">${formatMoney(total)}</td>
+              <td>${statusBadge}</td>
+            </tr>`;
+        }).join('');
+      }
+    }
+  } else {
+    if (alertBanner) alertBanner.style.display = 'none';
+    if (affiliateAcertosSec) affiliateAcertosSec.style.display = 'none';
   }
 
   const activeLoans   = loans.filter(l => l.status === 'active');
@@ -1461,46 +1555,9 @@ function loadAdminOverview() {
   const elComPag = document.getElementById('adm-com-pagas');
   if (elComPag) elComPag.textContent = formatMoney(comissoesPagas);
 
-  // Próximos vencimentos (30 dias)
-  const today = new Date();
-  const in30 = new Date(); in30.setDate(today.getDate() + 30);
-
-  const upcoming = [];
-  activeLoans.concat(overdueLoans).forEach(l => {
-    if (!l.parcelas) return;
-    l.parcelas.forEach(p => {
-      if (p.status === 'pending' || p.status === 'overdue') {
-        const vctoDate = new Date(p.vcto);
-        if (vctoDate <= in30) {
-          const client = clients.find(c => c.id === l.clientId);
-          const daysTo = Math.floor((vctoDate - today) / 86400000);
-          upcoming.push({ loan: l, parcela: p, client, daysTo });
-        }
-      }
-    });
-  });
-
-  upcoming.sort((a, b) => new Date(a.parcela.vcto) - new Date(b.parcela.vcto));
-
-  const vctoEl = document.getElementById('adm-vencimentos');
-  if (!upcoming.length) {
-    vctoEl.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><p>Nenhum vencimento nos próximos 30 dias.</p></div>`;
-  } else {
-    vctoEl.innerHTML = upcoming.map(({loan, parcela, client, daysTo}) => `
-      <div class="vcto-item">
-        <div>
-          <div class="vcto-client">${client ? client.nome : '—'}</div>
-          <div class="vcto-phone">${client ? client.tel : '—'}</div>
-        </div>
-        <div><label style="font-size:11px;color:var(--text-muted)">Parcela</label><span style="font-size:14px;font-weight:600">${parcela.n}ª de ${loan.prazo}</span></div>
-        <div><label style="font-size:11px;color:var(--text-muted)">Valor</label><span style="font-size:14px;font-weight:700;color:var(--green)">${formatMoney(parcela.valor)}</span></div>
-        <div><label style="font-size:11px;color:var(--text-muted)">Vencimento</label>
-          <span class="status-badge ${daysTo < 0 ? 'status-overdue' : daysTo <= 3 ? 'status-pending' : 'status-active'}">
-            ${daysTo < 0 ? `${Math.abs(daysTo)}d atrasado` : daysTo === 0 ? 'HOJE' : `em ${daysTo}d`}
-          </span>
-        </div>
-        <button class="btn-sms-single" onclick="quickSMS('${client ? client.id : ''}', '${loan.id}', '${daysTo < 0 ? 'atraso' : 'vencimento'}')">📱 SMS</button>
-      </div>`).join('');
+  // Renderizar Calendário de Cobrança
+  if (typeof renderCalendar === 'function') {
+    renderCalendar();
   }
 
   // Performance bars
@@ -2048,11 +2105,23 @@ function loadAllLoans(filter) {
 
   let loans = [];
   if (isSuper) {
-    loans = DB.loans;
-  } else if (isPadrinho && filterType === 'rede') {
-    const affiliates = creditors.filter(c => c.padrinhoId === user.creditorId);
-    const affiliateIds = affiliates.map(a => a.id);
-    loans = DB.loans.filter(l => l.creditorId === user.creditorId || affiliateIds.includes(l.creditorId) || (!l.creditorId && user.creditorId === 'default'));
+    if (filterType === 'all' || filterType === 'rede' || filterType === 'meu' || !filterType) {
+      loans = DB.loans;
+    } else if (filterType.startsWith('cred_')) {
+      const targetCreditorId = filterType.replace('cred_', '');
+      loans = DB.loans.filter(l => l.creditorId === targetCreditorId || (!l.creditorId && targetCreditorId === 'default'));
+    }
+  } else if (isPadrinho) {
+    if (filterType === 'rede') {
+      const affiliates = creditors.filter(c => c.padrinhoId === user.creditorId);
+      const affiliateIds = affiliates.map(a => a.id);
+      loans = DB.loans.filter(l => l.creditorId === user.creditorId || affiliateIds.includes(l.creditorId) || (!l.creditorId && user.creditorId === 'default'));
+    } else if (filterType === 'meu') {
+      loans = DB.loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
+    } else if (filterType.startsWith('cred_')) {
+      const targetCreditorId = filterType.replace('cred_', '');
+      loans = DB.loans.filter(l => l.creditorId === targetCreditorId || (!l.creditorId && targetCreditorId === 'default'));
+    }
   } else {
     loans = DB.loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
   }
@@ -2299,11 +2368,46 @@ function markAsPaid() {
   else toast('Atenção', 'Não há parcelas pendentes.', 'warning');
 }
 
+window.filterByStatus = filterByStatus;
+window.filterLoans = filterLoans;
+window.filterClients = filterClients;
+window.openLoanDetail = openLoanDetail;
+window.markParcelaPaid = markParcelaPaid;
+window.payCommission = payCommission;
+window.markAsPaid = markAsPaid;
+
+
 function loadAllClients() {
   const searchVal = document.getElementById('adm-search-client')?.value.toLowerCase() || '';
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
-  let clients = isSuper ? DB.clients : DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
+  const settings = DB.settings;
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  const currentCreditor = creditors.find(cr => cr.id === user.creditorId) || {};
+  const isPadrinho = currentCreditor.role === 'padrinho';
+  const filterType = document.getElementById('padrinho-filter-select')?.value || 'rede';
+
+  let clients = [];
+  if (isSuper) {
+    if (filterType === 'all' || filterType === 'rede' || filterType === 'meu' || !filterType) {
+      clients = DB.clients;
+    } else if (filterType.startsWith('cred_')) {
+      const targetCreditorId = filterType.replace('cred_', '');
+      clients = DB.clients.filter(c => c.creditorId === targetCreditorId || (!c.creditorId && targetCreditorId === 'default'));
+    }
+  } else if (isPadrinho) {
+    if (filterType === 'rede') {
+      const affiliates = creditors.filter(c => c.padrinhoId === user.creditorId);
+      const affiliateIds = affiliates.map(a => a.id);
+      clients = DB.clients.filter(c => c.creditorId === user.creditorId || affiliateIds.includes(c.creditorId) || (!c.creditorId && user.creditorId === 'default'));
+    } else if (filterType === 'meu') {
+      clients = DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
+    } else if (filterType.startsWith('cred_')) {
+      const targetCreditorId = filterType.replace('cred_', '');
+      clients = DB.clients.filter(c => c.creditorId === targetCreditorId || (!c.creditorId && targetCreditorId === 'default'));
+    }
+  } else {
+    clients = DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
+  }
 
   if (searchVal) {
     clients = clients.filter(c =>
@@ -2356,7 +2460,7 @@ function loadAllClients() {
     const avalName = loanWithAval ? loanWithAval.avalista.nome : '—';
 
     return `
-      <div class="client-card">
+      <div class="client-card" onclick="openClientDetail('${c.id}')" style="cursor: pointer;">
         <div class="client-card-header">
           ${avatarHtml}
           <div>
@@ -2371,17 +2475,17 @@ function loadAllClients() {
           <div class="cs-item"><label>Devendo</label><span class="${totalDevendo > 0 ? overdueL.length ? 'danger' : 'warning' : ''}">${formatMoney(totalDevendo)}</span></div>
           <div class="cs-item"><label>Emprego</label><span>${c.emprego || '—'}</span></div>
           <div class="cs-item"><label>Renda</label><span>${c.renda || '—'}</span></div>
-          <div class="cs-item"><label>Afiliado/Credor</label><span>${creditorName} (${roleLabel})</span></div>
+          <div class="cs-item"><label>Afiliado/Credor</label><span>${creditorName}</span></div>
           <div class="cs-item"><label>Padrinho</label><span>${padrinhoName}</span></div>
           <div class="cs-item" style="grid-column: span 2;"><label>Avalista</label><span>${avalName}</span></div>
-          <div class="cs-item" style="grid-column: span 2;">
+          <div class="cs-item" style="grid-column: span 2;" onclick="event.stopPropagation()">
             <label>Responsável</label>
             <span style="cursor:pointer; color:var(--primary); font-weight:bold;" onclick="editResponsavel('${c.id}')">
               ${c.responsavel ? c.responsavel + ' ✏️' : 'Atribuir Responsável ✏️'}
             </span>
           </div>
         </div>
-        <div class="client-actions">
+        <div class="client-actions" onclick="event.stopPropagation()">
           <button class="btn-view" onclick="adminNav('loans');filterByStatus('all');document.getElementById('adm-search-loan').value='${c.nome.split(' ')[0]}';filterLoans()">Ver Empréstimos</button>
           <button class="btn-sms-single" onclick="quickSMSClient('${c.id}')">📱 SMS</button>
         </div>
@@ -2400,6 +2504,145 @@ window.editResponsavel = function(clientId) {
     DB.clients = clients;
     loadAllClients();
   }
+};
+
+window.openClientDetail = function(clientId) {
+  const c = DB.clients.find(x => x.id === clientId);
+  if (!c) return;
+
+  const loans = DB.loans.filter(l => l.clientId === c.id);
+  const clientLoans = loans;
+  const activeL = clientLoans.filter(l => l.status === 'active');
+  const overdueL = clientLoans.filter(l => l.status === 'overdue');
+  const totalDevendo = activeL.concat(overdueL).reduce((acc, l) => {
+    if (!l.parcelas) return acc;
+    return acc + l.parcelas.filter(p => p.status !== 'paid').reduce((a, p) => a + p.valor, 0);
+  }, 0);
+
+  // Resolving photo (selfie)
+  const selfieUrl = c.selfie || clientLoans.find(l => l.selfie)?.selfie;
+
+  // Resolving Creditor and Padrinho
+  const settings = DB.settings;
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  const creditor = creditors.find(cr => cr.id === c.creditorId || (!c.creditorId && cr.id === 'default'));
+  const creditorName = creditor ? creditor.nome : '—';
+  const roleLabel = creditor && creditor.role === 'afiliado' ? 'Afiliado' : 'Padrinho';
+
+  let padrinhoName = '—';
+  if (creditor && creditor.padrinhoId) {
+    const padrinho = creditors.find(p => p.id === creditor.padrinhoId);
+    if (padrinho) padrinhoName = padrinho.nome;
+  } else if (creditor && creditor.role === 'padrinho') {
+    padrinhoName = creditor.nome;
+  }
+
+  // Build client detail HTML
+  let detailsHtml = `
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+      <!-- Header section with photo if exists -->
+      <div style="display: flex; gap: 20px; align-items: center; background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid var(--border); flex-wrap: wrap;">
+        ${selfieUrl ? `
+          <div style="flex-shrink: 0;">
+            <img src="${selfieUrl}" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid var(--green);" />
+          </div>
+        ` : `
+          <div style="width: 120px; height: 120px; border-radius: 50%; background: var(--navy-light); display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 700; border: 1px solid var(--border); color: var(--text-sec);">
+            ${c.nome.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase()}
+          </div>
+        `}
+        <div>
+          <h2 style="font-size: 24px; font-weight: 700; margin-bottom: 5px;">${c.nome}</h2>
+          <p style="color: var(--text-sec); font-size: 14px; margin-bottom: 5px;"><strong>CPF:</strong> ${c.cpf} · <strong>RG:</strong> ${c.rg || '—'}</p>
+          <p style="color: var(--text-sec); font-size: 14px;"><strong>Data de Cadastro:</strong> ${c.cadastro ? formatDate(c.cadastro) : '—'}</p>
+        </div>
+      </div>
+
+      <!-- Info Sections Grid -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+        <!-- Pessoal & Contato -->
+        <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+          <h4 style="margin-bottom: 12px; color: var(--green); border-bottom: 1px solid var(--border); padding-bottom: 6px;">📞 Informações Pessoais & Contato</h4>
+          <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px;">
+            <div><strong>Nascimento:</strong> ${c.nasc ? formatDate(c.nasc) : '—'}</div>
+            <div><strong>Estado Civil:</strong> ${c.estadoCivil || '—'}</div>
+            <div><strong>Telefone:</strong> ${c.tel}</div>
+            <div><strong>E-mail:</strong> ${c.email || '—'}</div>
+            <div><strong>CEP:</strong> ${c.cep || '—'}</div>
+            <div><strong>Endereço:</strong> ${c.endereco || '—'}</div>
+            <div><strong>Cidade/Estado:</strong> ${c.cidade}/${c.estado}</div>
+            ${c.location ? `
+              <div style="margin-top: 5px;">
+                <strong>Localização GPS:</strong> 
+                <a href="https://www.google.com/maps?q=${c.location.lat},${c.location.lng}" target="_blank" style="color: var(--blue); text-decoration: underline;">📍 Abrir no Google Maps</a>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Financeiro & Profissional -->
+        <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+          <h4 style="margin-bottom: 12px; color: var(--green); border-bottom: 1px solid var(--border); padding-bottom: 6px;">💼 Profissional & Financeiro</h4>
+          <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px;">
+            <div><strong>Situação de Emprego:</strong> ${c.emprego || '—'}</div>
+            <div><strong>Local de Trabalho:</strong> ${c.trabalho || '—'}</div>
+            <div><strong>Renda Mensal:</strong> ${c.renda || '—'}</div>
+            <div><strong>Garantia:</strong> ${c.garantia || 'Nenhuma'}</div>
+            <div><strong>Indicação:</strong> ${c.indicacao || 'Nenhuma'}</div>
+            <div><strong>Responsável:</strong> ${c.responsavel || 'Atribua um responsável'}</div>
+            <div><strong>Credor/Afiliado:</strong> ${creditorName} (${roleLabel})</div>
+            <div><strong>Padrinho:</strong> ${padrinhoName}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empréstimos -->
+      <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+        <h4 style="margin-bottom: 12px; color: var(--green); border-bottom: 1px solid var(--border); padding-bottom: 6px;">💰 Histórico de Empréstimos</h4>
+        <div style="font-size: 14px; margin-bottom: 15px;">
+          Saldo Devedor Total: <strong style="color: var(--orange); font-size: 16px;">${formatMoney(totalDevendo)}</strong>
+        </div>
+        ${clientLoans.length ? `
+          <div style="overflow-x: auto;">
+            <table class="installment-table" style="width: 100%; font-size: 12px;">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Solicitado</th>
+                  <th>Total c/ Juros</th>
+                  <th>Parcelas</th>
+                  <th>Status</th>
+                  <th>Data</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${clientLoans.map(l => {
+                  const pago = l.parcelas ? l.parcelas.filter(p => p.status === 'paid').reduce((a,p) => a+p.valor, 0) : 0;
+                  return `
+                    <tr>
+                      <td>#${l.id}</td>
+                      <td>${formatMoney(l.valor)}</td>
+                      <td>${l.totalComJuros ? formatMoney(l.totalComJuros) : '—'}</td>
+                      <td>${l.prazo} meses</td>
+                      <td><span class="status-badge status-${l.status}">${statusLabel(l.status)}</span></td>
+                      <td>${formatDate(l.createdAt)}</td>
+                      <td><button class="btn-view" style="font-size: 10px; padding: 4px 8px;" onclick="closeModal('modal-client-detail'); openLoanDetail('${l.id}')">👁️ Detalhes</button></td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : `
+          <p style="color: var(--text-sec); font-size: 13px;">Este cliente não possui empréstimos registrados.</p>
+        `}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('modal-client-detail-content').innerHTML = detailsHtml;
+  document.getElementById('modal-client-detail').classList.remove('hidden');
 };
 
 window.openAdminAddClientModal = function() {
@@ -2939,46 +3182,207 @@ document.addEventListener('click', (e) => {
 function loadRedePanel() {
   const s = DB.settings;
   const creditors = s.creditors || DEFAULT_SETTINGS.creditors || [];
+  const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
+  
+  const currentCreditor = creditors.find(c => c.id === user.creditorId) || {};
+  const isPadrinho = currentCreditor.role === 'padrinho';
+
+  // Toggle sections visibility based on role
+  const creditorsSection = document.getElementById('rede-creditors-section');
+  if (creditorsSection) {
+    creditorsSection.style.display = isSuper ? 'block' : 'none';
+  }
+  const btnAdd = document.getElementById('btn-add-acerto-top');
+  if (btnAdd) {
+    btnAdd.style.display = (isSuper || isPadrinho) ? 'block' : 'none';
+  }
+
+  // Populate Super Admin Creditors table
   const container = document.getElementById('rede-creditors-list');
-  if (!container) return;
+  if (container && isSuper) {
+    container.innerHTML = creditors.map(c => {
+      const roleLabel = c.role === 'padrinho' 
+        ? '<span style="color:var(--green);font-weight:700">Padrinho (Sponsor)</span>' 
+        : '<span style="color:var(--text-sec)">Afiliado (Affiliate)</span>';
 
-  container.innerHTML = creditors.map(c => {
-    const roleLabel = c.role === 'padrinho' 
-      ? '<span style="color:var(--green);font-weight:700">Padrinho (Sponsor)</span>' 
-      : '<span style="color:var(--text-sec)">Afiliado (Affiliate)</span>';
+      const linkedPadrinho = c.padrinhoId 
+        ? (creditors.find(p => p.id === c.padrinhoId)?.nome || 'Padrinho Inexistente')
+        : 'Nenhum';
 
-    const linkedPadrinho = c.padrinhoId 
-      ? (creditors.find(p => p.id === c.padrinhoId)?.nome || 'Padrinho Inexistente')
-      : 'Nenhum';
+      const roleActions = c.role === 'padrinho'
+        ? `<button class="btn-view" style="font-size:11px;padding:4px 8px;background:#ef4444;color:white;border:none;border-radius:4px;" onclick="changeCreditorRole('${c.id}', 'afiliado')">Despromover a Afiliado</button>`
+        : `<button class="btn-view" style="font-size:11px;padding:4px 8px;background:#22c55e;color:white;border:none;border-radius:4px;" onclick="changeCreditorRole('${c.id}', 'padrinho')">Promover a Padrinho</button>`;
 
-    const roleActions = c.role === 'padrinho'
-      ? `<button class="btn-view" style="font-size:11px;padding:4px 8px;background:#ef4444;color:white;" onclick="changeCreditorRole('${c.id}', 'afiliado')">Despromover a Afiliado</button>`
-      : `<button class="btn-view" style="font-size:11px;padding:4px 8px;background:#22c55e;color:white;" onclick="changeCreditorRole('${c.id}', 'padrinho')">Promover a Padrinho</button>`;
+      const linkAction = c.role === 'afiliado'
+        ? `
+          <div style="display:flex; gap:4px; align-items:center;" onclick="event.stopPropagation()">
+            <select id="link-select-${c.id}" style="font-size:11px; padding:2px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri);">
+              <option value="">Desvincular</option>
+              ${creditors.filter(p => p.role === 'padrinho' && p.id !== c.id).map(p => `<option value="${p.id}" ${c.padrinhoId === p.id ? 'selected' : ''}>${p.nome}</option>`).join('')}
+            </select>
+            <button class="btn-view" style="font-size:11px;padding:4px 6px" onclick="linkCreditorToPadrinho('${c.id}')">Vincular</button>
+          </div>`
+        : '—';
 
-    const linkAction = c.role === 'afiliado'
-      ? `
-        <div style="display:flex; gap:4px; align-items:center;">
-          <select id="link-select-${c.id}" style="font-size:11px; padding:2px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri);">
-            <option value="">Desvincular</option>
-            ${creditors.filter(p => p.role === 'padrinho' && p.id !== c.id).map(p => `<option value="${p.id}" ${c.padrinhoId === p.id ? 'selected' : ''}>${p.nome}</option>`).join('')}
-          </select>
-          <button class="btn-view" style="font-size:11px;padding:4px 6px" onclick="linkCreditorToPadrinho('${c.id}')">Vincular</button>
-        </div>`
-      : '—';
+      return `
+        <tr>
+          <td style="font-weight:600">${c.nome}</td>
+          <td>${c.email}</td>
+          <td>${roleLabel}</td>
+          <td>${linkedPadrinho}</td>
+          <td style="display:flex; gap:12px; align-items:center;">
+            ${roleActions}
+            ${linkAction}
+          </td>
+        </tr>`;
+    }).join('');
+  }
 
-    return `
-      <tr>
-        <td style="font-weight:600">${c.nome}</td>
-        <td>${c.email}</td>
-        <td>${roleLabel}</td>
-        <td>${linkedPadrinho}</td>
-        <td style="display:flex; gap:12px; align-items:center;">
-          ${roleActions}
-          ${linkAction}
-        </td>
-      </tr>`;
-  }).join('');
+  // Populate Acertos list
+  const acertosList = document.getElementById('rede-acertos-list');
+  if (acertosList) {
+    const acertos = s.acertosAfiliados || [];
+    const myAcertos = isSuper 
+      ? acertos 
+      : acertos.filter(a => a.padrinhoId === user.creditorId);
+
+    if (myAcertos.length === 0) {
+      acertosList.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-sec); padding: 15px;">Nenhum acerto de juros registrado.</td></tr>`;
+    } else {
+      acertosList.innerHTML = myAcertos.map(a => {
+        const padrinhoNome = creditors.find(p => p.id === a.padrinhoId)?.nome || 'ÁgilBank Principal';
+        const total = a.valorPrincipal * (1 + a.taxaJuros / 100);
+        const statusBadge = a.status === 'paid' 
+          ? '<span class="status-badge status-active">✓ PAGO</span>' 
+          : '<span class="status-badge status-overdue">⏳ PENDENTE</span>';
+
+        const actionBtn = a.status === 'pending'
+          ? `<button class="btn-view" style="font-size:11px;padding:4px 8px;background:var(--green);color:black;border:none;border-radius:4px;" onclick="markAcertoPaid('${a.id}')">✓ Pago</button>
+             <button class="btn-view" style="font-size:11px;padding:4px 8px;background:var(--red);color:white;border:none;border-radius:4px;" onclick="deleteAcerto('${a.id}')">✕ Excluir</button>`
+          : `<button class="btn-view" style="font-size:11px;padding:4px 8px;background:var(--red);color:white;border:none;border-radius:4px;" onclick="deleteAcerto('${a.id}')">✕ Excluir</button>`;
+
+        return `
+          <tr>
+            <td style="font-weight:600">${a.afiliadoNome}</td>
+            <td>${padrinhoNome}</td>
+            <td>${formatMoney(a.valorPrincipal)}</td>
+            <td>${formatDate(a.vencimentoJuros)}</td>
+            <td>${a.taxaJuros}%</td>
+            <td style="font-weight:700;color:var(--green)">${formatMoney(total)}</td>
+            <td>${statusBadge}</td>
+            <td>
+              <div style="display:flex;gap:6px;">
+                ${actionBtn}
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+  }
 }
+
+window.openAddAcertoModal = function() {
+  const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
+  const settings = DB.settings;
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  
+  let affiliates = [];
+  if (isSuper) {
+    affiliates = creditors.filter(c => c.role === 'afiliado');
+  } else {
+    // Only my affiliates
+    affiliates = creditors.filter(c => c.role === 'afiliado' && c.padrinhoId === user.creditorId);
+  }
+
+  const select = document.getElementById('acerto-afiliado-id');
+  if (select) {
+    if (affiliates.length === 0) {
+      select.innerHTML = '<option value="">Nenhum afiliado disponível</option>';
+    } else {
+      select.innerHTML = affiliates.map(a => `<option value="${a.id}">${a.nome} (${a.email})</option>`).join('');
+    }
+  }
+
+  document.getElementById('acerto-valor').value = '';
+  document.getElementById('acerto-taxa').value = '10';
+  document.getElementById('acerto-vcto').value = getDefaultDate(30);
+
+  showModal('modal-add-acerto');
+};
+
+window.saveAcerto = function() {
+  const afiliadoId = document.getElementById('acerto-afiliado-id').value;
+  const valor = parseFloat(document.getElementById('acerto-valor').value);
+  const taxa = parseFloat(document.getElementById('acerto-taxa').value);
+  const vcto = document.getElementById('acerto-vcto').value;
+
+  if (!afiliadoId || isNaN(valor) || isNaN(taxa) || !vcto) {
+    toast('Atenção', 'Preencha todos os campos do acerto.', 'warning');
+    return;
+  }
+
+  const settings = DB.settings;
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  const afiliado = creditors.find(c => c.id === afiliadoId);
+  if (!afiliado) return;
+
+  const user = DB.currentUser || {};
+  const padrinhoId = afiliado.padrinhoId || user.creditorId || 'default';
+
+  const newAcerto = {
+    id: 'ac_' + Date.now(),
+    afiliadoId,
+    afiliadoNome: afiliado.nome,
+    padrinhoId,
+    valorPrincipal: valor,
+    taxaJuros: taxa,
+    vencimentoJuros: vcto,
+    status: 'pending'
+  };
+
+  settings.acertosAfiliados = settings.acertosAfiliados || [];
+  settings.acertosAfiliados.push(newAcerto);
+  DB.settings = settings;
+
+  closeModal('modal-add-acerto');
+  toast('Sucesso', 'Acerto de juros registrado!', 'success');
+  loadRedePanel();
+};
+
+window.markAcertoPaid = function(acertoId) {
+  if (!confirm('Deseja marcar este acerto de juros como PAGO?')) return;
+  const settings = DB.settings;
+  const acertos = settings.acertosAfiliados || [];
+  const idx = acertos.findIndex(a => a.id === acertoId);
+  if (idx !== -1) {
+    acertos[idx].status = 'paid';
+    settings.acertosAfiliados = acertos;
+    DB.settings = settings;
+    toast('Sucesso', 'Acerto marcado como PAGO!', 'success');
+    loadRedePanel();
+    // Se estiver no dashboard, recarrega para atualizar
+    if (document.getElementById('screen-admin').classList.contains('active')) {
+      loadAdminOverview();
+    }
+  }
+};
+
+window.deleteAcerto = function(acertoId) {
+  if (!confirm('Tem certeza que deseja excluir este acerto?')) return;
+  const settings = DB.settings;
+  const acertos = settings.acertosAfiliados || [];
+  const filtered = acertos.filter(a => a.id !== acertoId);
+  settings.acertosAfiliados = filtered;
+  DB.settings = settings;
+  toast('Sucesso', 'Acerto excluído com sucesso!', 'success');
+  loadRedePanel();
+  // Se estiver no dashboard, recarrega para atualizar
+  if (document.getElementById('screen-admin').classList.contains('active')) {
+    loadAdminOverview();
+  }
+};
 
 function changeCreditorRole(creditorId, newRole) {
   const s = DB.settings;
@@ -3533,4 +3937,226 @@ function saveAdminAudioMessage(base64Audio) {
   selectChatContact(activeChatContactId);
   loadChatPanel();
 }
+
+// ══════════════════════════════════════
+// CALENDÁRIO DE COBRANÇA
+// ══════════════════════════════════════
+let currentCalendarDate = new Date();
+let selectedCalendarDayStr = null;
+
+window.renderCalendar = function() {
+  const grid = document.getElementById('calendar-days-grid');
+  const title = document.getElementById('calendar-month-year');
+  if (!grid || !title) return;
+
+  grid.innerHTML = '';
+  
+  // Render headers
+  const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  WEEKDAYS.forEach(day => {
+    grid.innerHTML += `<div class="calendar-day-header">${day}</div>`;
+  });
+
+  const year = currentCalendarDate.getFullYear();
+  const month = currentCalendarDate.getMonth();
+
+  // Set title
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+  title.textContent = `${monthNames[month]} ${year}`;
+
+  const firstDayIndex = new Date(year, month, 1).getDay();
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const prevLastDay = new Date(year, month, 0).getDate();
+
+  // Previous month padding days
+  for (let x = firstDayIndex; x > 0; x--) {
+    grid.innerHTML += `<div class="calendar-day-cell other-month">${prevLastDay - x + 1}</div>`;
+  }
+
+  // Current month days
+  const today = new Date();
+  const loans = DB.loans;
+  const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
+  const filterType = document.getElementById('padrinho-filter-select')?.value || 'rede';
+
+  // Get filtered loans for the active view to display indicators
+  let activeLoans = [];
+  const settings = DB.settings;
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  const currentCreditor = creditors.find(cr => cr.id === user.creditorId) || {};
+  const isPadrinho = currentCreditor.role === 'padrinho';
+
+  if (isSuper) {
+    if (filterType === 'all' || filterType === 'rede' || filterType === 'meu' || !filterType) {
+      activeLoans = loans;
+    } else if (filterType.startsWith('cred_')) {
+      const targetCreditorId = filterType.replace('cred_', '');
+      activeLoans = loans.filter(l => l.creditorId === targetCreditorId || (!l.creditorId && targetCreditorId === 'default'));
+    }
+  } else if (isPadrinho) {
+    if (filterType === 'rede') {
+      const affiliates = creditors.filter(c => c.padrinhoId === user.creditorId);
+      const affiliateIds = affiliates.map(a => a.id);
+      activeLoans = loans.filter(l => l.creditorId === user.creditorId || affiliateIds.includes(l.creditorId) || (!l.creditorId && user.creditorId === 'default'));
+    } else if (filterType === 'meu') {
+      activeLoans = loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
+    } else if (filterType.startsWith('cred_')) {
+      const targetCreditorId = filterType.replace('cred_', '');
+      activeLoans = loans.filter(l => l.creditorId === targetCreditorId || (!l.creditorId && targetCreditorId === 'default'));
+    }
+  } else {
+    activeLoans = loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
+  }
+
+  // Find all due dates that have pending/overdue installments
+  const dueDatesMap = {};
+  activeLoans.forEach(l => {
+    if (!l.parcelas || l.status === 'paid' || l.status === 'rejected') return;
+    l.parcelas.forEach(p => {
+      if (p.status === 'pending' || p.status === 'overdue') {
+        dueDatesMap[p.vcto] = true;
+      }
+    });
+  });
+
+  for (let i = 1; i <= lastDay; i++) {
+    const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+    const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === i;
+    const hasVenc = dueDatesMap[dayStr] ? 'has-vencimentos' : '';
+    const isSelected = selectedCalendarDayStr === dayStr ? 'selected' : '';
+
+    grid.innerHTML += `
+      <div class="calendar-day-cell ${isToday ? 'today' : ''} ${hasVenc} ${isSelected}" 
+           onclick="selectCalendarDay('${dayStr}')">
+        ${i}
+      </div>`;
+  }
+
+  // Next month padding days
+  const totalCells = firstDayIndex + lastDay;
+  const nextMonthPadding = 42 - totalCells; // 6 rows total
+  for (let j = 1; j <= nextMonthPadding; j++) {
+    grid.innerHTML += `<div class="calendar-day-cell other-month">${j}</div>`;
+  }
+
+  // Render details for the selected day or today on initial load
+  if (!selectedCalendarDayStr) {
+    const initialDayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    selectCalendarDay(initialDayStr);
+  } else {
+    selectCalendarDay(selectedCalendarDayStr);
+  }
+};
+
+window.changeCalendarMonth = function(direction) {
+  currentCalendarDate.setMonth(currentCalendarDate.getMonth() + direction);
+  selectedCalendarDayStr = null; // reset selected day when changing month
+  renderCalendar();
+};
+
+window.selectCalendarDay = function(dateString) {
+  selectedCalendarDayStr = dateString;
+  
+  // Highlight in grid
+  const cells = document.querySelectorAll('.calendar-day-cell');
+  // Match cell elements to date string dynamically
+  const year = currentCalendarDate.getFullYear();
+  const month = currentCalendarDate.getMonth();
+  const targetDay = parseInt(dateString.split('-')[2]);
+
+  cells.forEach(cell => {
+    if (!cell.classList.contains('other-month') && parseInt(cell.textContent.trim()) === targetDay) {
+      cell.classList.add('selected');
+    } else {
+      cell.classList.remove('selected');
+    }
+  });
+  
+  const detailSec = document.getElementById('calendar-day-details');
+  const detailTitle = document.getElementById('calendar-selected-day-title');
+  const listContainer = document.getElementById('calendar-day-loans-list');
+  
+  if (!detailSec || !listContainer) return;
+  
+  const formattedDate = formatDate(dateString);
+  if (detailTitle) detailTitle.innerHTML = `Cobranças do dia: <strong>${formattedDate}</strong>`;
+  
+  const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
+  const filterType = document.getElementById('padrinho-filter-select')?.value || 'rede';
+  const settings = DB.settings;
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  const currentCreditor = creditors.find(cr => cr.id === user.creditorId) || {};
+  const isPadrinho = currentCreditor.role === 'padrinho';
+  const clients = DB.clients;
+  const loans = DB.loans;
+  
+  let activeLoans = [];
+  if (isSuper) {
+    if (filterType === 'all' || filterType === 'rede' || filterType === 'meu' || !filterType) {
+      activeLoans = loans;
+    } else if (filterType.startsWith('cred_')) {
+      const targetCreditorId = filterType.replace('cred_', '');
+      activeLoans = loans.filter(l => l.creditorId === targetCreditorId || (!l.creditorId && targetCreditorId === 'default'));
+    }
+  } else if (isPadrinho) {
+    if (filterType === 'rede') {
+      const affiliates = creditors.filter(c => c.padrinhoId === user.creditorId);
+      const affiliateIds = affiliates.map(a => a.id);
+      activeLoans = loans.filter(l => l.creditorId === user.creditorId || affiliateIds.includes(l.creditorId) || (!l.creditorId && user.creditorId === 'default'));
+    } else if (filterType === 'meu') {
+      activeLoans = loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
+    } else if (filterType.startsWith('cred_')) {
+      const targetCreditorId = filterType.replace('cred_', '');
+      activeLoans = loans.filter(l => l.creditorId === targetCreditorId || (!l.creditorId && targetCreditorId === 'default'));
+    }
+  } else {
+    activeLoans = loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
+  }
+
+  const upcoming = [];
+  activeLoans.forEach(l => {
+    if (!l.parcelas || l.status === 'paid' || l.status === 'rejected') return;
+    l.parcelas.forEach(p => {
+      if (p.vcto === dateString && (p.status === 'pending' || p.status === 'overdue')) {
+        const client = clients.find(c => c.id === l.clientId);
+        upcoming.push({ loan: l, parcela: p, client });
+      }
+    });
+  });
+
+  detailSec.style.display = 'block';
+  
+  if (!upcoming.length) {
+    listContainer.innerHTML = `<div style="padding: 15px; text-align: center; color: var(--text-sec); font-size:13px;">Nenhuma cobrança agendada para este dia.</div>`;
+  } else {
+    listContainer.innerHTML = upcoming.map(({loan, parcela, client}) => {
+      const isOverdue = parcela.status === 'overdue';
+      return `
+        <div class="vcto-item" style="border: 1px solid var(--border); background: rgba(255,255,255,0.01); padding: 12px; border-radius: 8px; margin-bottom: 8px;">
+          <div>
+            <div class="vcto-client" style="font-weight:700;">${client ? client.nome : '—'}</div>
+            <div class="vcto-phone" style="font-size:11px; color:var(--text-sec);">${client ? client.tel : '—'}</div>
+          </div>
+          <div><label style="font-size:11px;color:var(--text-muted);display:block;">Parcela</label><span style="font-size:13px;font-weight:600;">${parcela.n}ª de ${loan.prazo}</span></div>
+          <div><label style="font-size:11px;color:var(--text-muted);display:block;">Valor</label><span style="font-size:13px;font-weight:700;color:var(--green);">${formatMoney(parcela.valor)}</span></div>
+          <div>
+            <label style="font-size:11px;color:var(--text-muted);display:block;">Status</label>
+            <span class="status-badge ${isOverdue ? 'status-overdue' : 'status-pending'}">
+              ${isOverdue ? 'Atrasado' : 'Pendente'}
+            </span>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn-sms-single" style="padding: 4px 8px; font-size: 11px; margin-top:0;" onclick="quickSMS('${client ? client.id : ''}', '${loan.id}', '${isOverdue ? 'atraso' : 'vencimento'}')">📱 SMS</button>
+            <button class="btn-view" style="padding: 4px 8px; font-size: 11px; margin-top:0; border-radius:4px;" onclick="openLoanDetail('${loan.id}')">👁️ Ver</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+};
+
 

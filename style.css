@@ -1532,4 +1532,57 @@ body {
   height: 18px;
 }
 
+/* ── Billing Calendar Widget ── */
+.calendar-day-header {
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 8px 0;
+  font-size: 12px;
+}
+.calendar-day-cell {
+  aspect-ratio: 1.2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+  font-weight: 500;
+  font-size: 13px;
+}
+.calendar-day-cell:hover {
+  background: var(--navy-light);
+  border-color: var(--green);
+}
+.calendar-day-cell.selected {
+  background: var(--green) !important;
+  color: #000 !important;
+  font-weight: 700;
+  border-color: var(--green-dark);
+}
+.calendar-day-cell.today {
+  border: 2px solid var(--blue);
+}
+.calendar-day-cell.other-month {
+  opacity: 0.25;
+  cursor: default;
+  pointer-events: none;
+}
+.calendar-day-cell.has-vencimentos::after {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  width: 6px;
+  height: 6px;
+  background: var(--orange);
+  border-radius: 50%;
+}
+.calendar-day-cell.selected.has-vencimentos::after {
+  background: #000;
+}
+
 
