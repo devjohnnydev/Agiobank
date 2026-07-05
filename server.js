@@ -28,7 +28,7 @@ async function initDB() {
   if (!pool) return;
   try {
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS app_state (
+      CREATE TABLE IF NOT EXISTS app_state_v2 (
         id INTEGER PRIMARY KEY DEFAULT 1,
         clients     JSONB NOT NULL DEFAULT '[]'::jsonb,
         loans       JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -39,7 +39,7 @@ async function initDB() {
       );
     `);
     await pool.query(`
-      INSERT INTO app_state (id) VALUES (1)
+      INSERT INTO app_state_v2 (id) VALUES (1)
       ON CONFLICT (id) DO NOTHING;
     `);
     console.log('✅ Tabela app_state pronta!');
@@ -61,12 +61,12 @@ app.get('/api/state', async (req, res) => {
   try {
     // Garante a linha única
     await pool.query(`
-      INSERT INTO app_state (id, clients, loans, sms_history, settings)
+      INSERT INTO app_state_v2 (id, clients, loans, sms_history, settings)
       VALUES (1, '[]', '[]', '[]', '{}')
       ON CONFLICT (id) DO NOTHING
     `);
 
-    const result = await pool.query('SELECT * FROM app_state WHERE id = 1');
+    const result = await pool.query('SELECT * FROM app_state_v2 WHERE id = 1');
     const row = result.rows[0];
     res.json({
       clients:    row.clients    || [],
@@ -95,7 +95,7 @@ app.post('/api/state', async (req, res) => {
 
   try {
     await pool.query(`
-      INSERT INTO app_state (id, clients, loans, sms_history, settings, updated_at)
+      INSERT INTO app_state_v2 (id, clients, loans, sms_history, settings, updated_at)
       VALUES (1, $1, $2, $3, $4, NOW())
       ON CONFLICT (id) DO UPDATE
         SET clients     = EXCLUDED.clients,
