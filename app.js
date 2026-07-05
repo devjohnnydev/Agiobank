@@ -1255,9 +1255,9 @@ function enterAdmin() {
   const redeNav = document.getElementById('anav-rede');
   if (redeNav) redeNav.style.display = isSuper ? 'block' : 'none';
 
-  // Show/Hide Chat (for Padrinho / Afiliado — not for Super Admin)
+  // Show Chat for all admin roles (Super Admin sees all chats, others see their network)
   const chatNav = document.getElementById('anav-chat');
-  if (chatNav) chatNav.style.display = (!isSuper) ? 'block' : 'none';
+  if (chatNav) chatNav.style.display = 'block';
 
   // Run overdue check when admin opens panel
   checkOverdueInstallments();
@@ -1312,6 +1312,19 @@ function updateAdminBadges() {
 
   const overdueEl = document.getElementById('badge-overdue');
   if (overdueEl) { overdueEl.textContent = overdue; overdueEl.style.display = overdue ? 'inline-block' : 'none'; }
+
+  // Chat unread badge: count all messages directed to this admin
+  const settings = DB.settings;
+  const allMsgs = (settings.chatMessages || []);
+  let unread = 0;
+  if (isSuper) {
+    // Count messages from clients (ids starting with 'c') to padrinho
+    unread = allMsgs.filter(m => !m.readByAdmin && (typeof m.fromId === 'string') && m.fromId.startsWith('c')).length;
+  } else {
+    unread = allMsgs.filter(m => !m.readByAdmin && m.toId === user.creditorId).length;
+  }
+  const chatBadge = document.getElementById('badge-chat');
+  if (chatBadge) { chatBadge.textContent = unread; chatBadge.style.display = unread > 0 ? 'inline-block' : 'none'; }
 }
 
 function loadAdminOverview() {
@@ -2986,6 +2999,7 @@ function linkCreditorToPadrinho(creditorId) {
 // ══════════════════════════════════════
 function loadChatPanel() {
   const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
   const settings = DB.settings;
   const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
   const currentCreditor = creditors.find(c => c.id === user.creditorId) || {};
@@ -2994,90 +3008,145 @@ function loadChatPanel() {
   if (!contactsList) return;
 
   let contacts = [];
-  if (currentCreditor.role === 'padrinho') {
-    contacts = creditors.filter(c => c.padrinhoId === user.creditorId);
+
+  if (isSuper) {
+    // Super Admin sees all clients who have sent messages
+    const allMsgs = settings.chatMessages || [];
+    const clientIdsWithMsgs = [...new Set(allMsgs
+      .filter(m => typeof m.fromId === 'string' && m.fromId.startsWith('c'))
+      .map(m => m.fromId)
+    )];
+    const allClients = DB.clients;
+    // Show clients with messages first, then all others
+    const clientsWithMsgs = clientIdsWithMsgs.map(id => {
+      const cl = allClients.find(c => c.id === id);
+      return cl ? { id: cl.id, nome: cl.nome, role: 'cliente', hasMsg: true } : null;
+    }).filter(Boolean);
+    const clientsWithoutMsgs = allClients
+      .filter(c => !clientIdsWithMsgs.includes(c.id))
+      .map(c => ({ id: c.id, nome: c.nome, role: 'cliente', hasMsg: false }));
+    contacts = [...clientsWithMsgs, ...clientsWithoutMsgs];
+  } else if (currentCreditor.role === 'padrinho') {
+    // Padrinho sees affiliated creditors
+    contacts = creditors.filter(c => c.padrinhoId === user.creditorId).map(c => ({ ...c, hasMsg: false }));
+    // Also add all clients of this padrinho
+    const myClients = DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
+    myClients.forEach(c => contacts.push({ id: c.id, nome: c.nome, role: 'cliente', hasMsg: false }));
+    // Also clients of affiliated creditors
+    const affiliateIds = creditors.filter(c => c.padrinhoId === user.creditorId).map(c => c.id);
+    const affiliateClients = DB.clients.filter(c => affiliateIds.includes(c.creditorId));
+    affiliateClients.forEach(c => contacts.push({ id: c.id, nome: c.nome + ' (via afiliado)', role: 'cliente', hasMsg: false }));
   } else if (currentCreditor.role === 'afiliado') {
+    // Afiliado sees their padrinho + their own clients
     const myPadrinho = creditors.find(c => c.id === currentCreditor.padrinhoId);
-    if (myPadrinho) contacts.push(myPadrinho);
+    if (myPadrinho) contacts.push({ ...myPadrinho, hasMsg: false });
+    const myClients = DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
+    myClients.forEach(c => contacts.push({ id: c.id, nome: c.nome, role: 'cliente', hasMsg: false }));
   }
 
-  // Add clients belonging to this creditor
-  const myClients = DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
-  myClients.forEach(c => {
-    contacts.push({
-      id: c.id,
-      nome: `👤 Cliente: ${c.nome}`,
-      role: 'cliente'
-    });
+  // Mark which contacts have unread messages
+  const allMsgs = settings.chatMessages || [];
+  contacts = contacts.map(c => {
+    const hasUnread = allMsgs.some(m => !m.readByAdmin && m.fromId === c.id && m.toId === (isSuper ? 'default' : user.creditorId));
+    return { ...c, hasUnread };
   });
 
   if (contacts.length === 0) {
     contactsList.innerHTML = `<div style="padding:15px; font-size:12px; color:var(--text-muted);">Nenhum contato disponível na sua rede.</div>`;
-    document.getElementById('chat-header-title').textContent = 'Sem conversas disponíveis';
-    document.getElementById('chat-messages-container').innerHTML = '';
+    document.getElementById('chat-header-title').textContent = 'Nenhuma conversa ainda';
+    document.getElementById('chat-messages-container').innerHTML = `<div style="text-align:center; color:var(--text-muted); font-size:13px; margin-top:40px;">Nenhum cliente cadastrado ainda.</div>`;
     return;
   }
 
   contactsList.innerHTML = contacts.map(c => {
     const isActive = activeChatContactId === c.id;
-    const bg = isActive ? 'background: rgba(255,255,255,0.08); border-left: 3px solid var(--green);' : '';
-    const sub = c.role === 'cliente' ? 'Afiliado / Tomador' : (c.role === 'padrinho' ? 'Padrinho' : 'Afiliado');
+    const bg = isActive ? 'background: rgba(34,197,94,0.08); border-left: 3px solid var(--green);' : '';
+    const unreadDot = c.hasUnread ? `<span style="width:8px;height:8px;background:var(--green);border-radius:50%;display:inline-block;margin-left:6px;"></span>` : '';
+    let roleLabel = c.role === 'cliente' ? 'Cliente' : (c.role === 'padrinho' ? 'Padrinho' : 'Afiliado');
+    const lastMsg = allMsgs.filter(m => (m.fromId === c.id || m.toId === c.id)).slice(-1)[0];
+    const lastMsgText = lastMsg ? (lastMsg.audio ? '🎙️ Áudio' : lastMsg.text.substring(0, 30) + (lastMsg.text.length > 30 ? '...' : '')) : 'Sem mensagens';
     return `
       <div class="chat-contact-item" 
            onclick="selectChatContact('${c.id}')"
-           style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background 0.2s; ${bg}">
-        <div style="font-weight: 600; font-size: 13px; color: var(--text-pri);">${c.nome}</div>
-        <div style="font-size: 11px; color: var(--text-sec);">${sub}</div>
+           style="padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); cursor: pointer; transition: background 0.2s; ${bg}">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight: 600; font-size: 13px; color: var(--text-pri); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;">👤 ${c.nome}${unreadDot}</div>
+          <div style="font-size: 10px; color: var(--text-muted);">${roleLabel}</div>
+        </div>
+        <div style="font-size: 11px; color: var(--text-sec); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${lastMsgText}</div>
       </div>`;
   }).join('');
 
   if (activeChatContactId) {
     selectChatContact(activeChatContactId);
+  } else if (contacts.length > 0) {
+    // Auto-select first contact
+    selectChatContact(contacts[0].id);
   }
 }
 
 function selectChatContact(contactId) {
   activeChatContactId = contactId;
   
-  // Highlight active contact
-  document.querySelectorAll('.chat-contact-item').forEach(el => el.classList.remove('active'));
-  
   const settings = DB.settings;
   const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
+
+  // Mark messages as read
+  let messages = settings.chatMessages || [];
+  messages = messages.map(m => {
+    if (m.fromId === contactId) return { ...m, readByAdmin: true };
+    return m;
+  });
+  settings.chatMessages = messages;
+  DB.settings = settings;
+  updateAdminBadges();
+  
   let contact = creditors.find(c => c.id === contactId);
   if (!contact) {
     const cl = DB.clients.find(c => c.id === contactId);
-    if (cl) {
-      contact = { id: cl.id, nome: cl.nome, role: 'cliente' };
-    }
+    if (cl) contact = { id: cl.id, nome: cl.nome, role: 'cliente' };
   }
   if (!contact) contact = {};
   
-  const displayRole = contact.role === 'cliente' ? 'Afiliado' : (contact.role === 'padrinho' ? 'Padrinho' : 'Credor');
-  document.getElementById('chat-header-title').textContent = `Conversando com: ${contact.nome} (${displayRole})`;
+  const displayRole = contact.role === 'cliente' ? 'Cliente' : (contact.role === 'padrinho' ? 'Padrinho' : 'Afiliado');
+  document.getElementById('chat-header-title').textContent = `💬 Conversa com: ${contact.nome}`;
 
-  // Render messages
-  const user = DB.currentUser || {};
+  // Determine the admin's sending ID for this conversation
+  // For super admin, the 'from' ID in responses is 'default' (the main padrinho ID)
+  const adminSendId = isSuper ? 'default' : user.creditorId;
+
+  // Render messages — match both directions
   const allMessages = settings.chatMessages || [];
-  
   const chatMessages = allMessages.filter(m => 
+    (m.fromId === adminSendId && m.toId === contactId) ||
+    (m.fromId === contactId && m.toId === adminSendId) ||
     (m.fromId === user.creditorId && m.toId === contactId) ||
     (m.fromId === contactId && m.toId === user.creditorId)
   );
 
+  // Deduplicate by timestamp
+  const seen = new Set();
+  const uniqueMessages = chatMessages.filter(m => {
+    if (seen.has(m.timestamp)) return false;
+    seen.add(m.timestamp);
+    return true;
+  });
+
   const container = document.getElementById('chat-messages-container');
   if (container) {
-    if (chatMessages.length === 0) {
-      container.innerHTML = `<div style="text-align:center; color:var(--text-muted); font-size:12px; margin-top:20px;">Nenhuma mensagem registrada. Envie um "Olá"!</div>`;
+    if (uniqueMessages.length === 0) {
+      container.innerHTML = `<div style="text-align:center; color:var(--text-muted); font-size:13px; margin-top:40px;">💬 Nenhuma mensagem ainda. Diga olá!</div>`;
     } else {
-      container.innerHTML = chatMessages.map(m => {
-        const isMe = m.fromId === user.creditorId;
-        const align = isMe ? 'align-self: flex-end; background: var(--green); color: white;' : 'align-self: flex-start; background: var(--border); color: var(--text-pri);';
+      container.innerHTML = uniqueMessages.map(m => {
+        const isMe = m.fromId === adminSendId || m.fromId === user.creditorId;
+        const align = isMe ? 'align-self: flex-end; background: var(--green); color: white;' : 'align-self: flex-start; background: rgba(255,255,255,0.06); color: var(--text-pri);';
         const contentHtml = m.audio 
-          ? `<audio src="${m.audio}" controls style="max-width: 100%; min-width: 200px; margin-top: 4px; border-radius: 4px; display: block;"></audio>` 
+          ? `<audio src="${m.audio}" controls style="max-width: 100%; min-width: 200px; margin-top: 4px; border-radius: 20px; display: block;"></audio>` 
           : `<div>${m.text}</div>`;
         return `
-          <div style="max-width: 70%; padding: 8px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 4px; ${align}">
+          <div style="max-width: 70%; padding: 10px 14px; border-radius: 12px; font-size: 13px; margin-bottom: 6px; display:flex; flex-direction:column; ${align}">
             ${contentHtml}
             <div style="font-size: 9px; text-align: right; margin-top: 4px; opacity: 0.7;">${new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
           </div>`;
@@ -3085,10 +3154,14 @@ function selectChatContact(contactId) {
       container.scrollTop = container.scrollHeight;
     }
   }
+
+  // Refresh contacts list highlight
+  document.querySelectorAll('.chat-contact-item').forEach(el => el.style.borderLeft = '');
 }
 
 function sendChatMessage() {
   const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
   if (!activeChatContactId) {
     toast('Atenção', 'Selecione um contato primeiro.', 'warning');
     return;
@@ -3101,11 +3174,15 @@ function sendChatMessage() {
   const s = DB.settings;
   const messages = s.chatMessages || [];
 
+  // Super Admin sends as 'default' (the main padrinho)
+  const sendFromId = isSuper ? 'default' : user.creditorId;
+
   const newMsg = {
-    fromId: user.creditorId,
+    fromId: sendFromId,
     toId: activeChatContactId,
     text: text,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    readByAdmin: true
   };
 
   messages.push(newMsg);
@@ -3114,6 +3191,7 @@ function sendChatMessage() {
 
   input.value = '';
   selectChatContact(activeChatContactId);
+  loadChatPanel(); // refresh contacts list
 }
 
 function togglePasswordVisibility(inputId, btn) {
@@ -3148,7 +3226,7 @@ function loadClientChat() {
   const settings = DB.settings;
   const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
   
-  // Find Padrinho
+  // Find Padrinho — the creditor linked to this client
   const myCreditor = creditors.find(cr => cr.id === user.creditorId || (!user.creditorId && cr.id === 'default'));
   let padrinho = null;
   if (myCreditor) {
@@ -3156,37 +3234,61 @@ function loadClientChat() {
       padrinho = myCreditor;
     } else if (myCreditor.padrinhoId) {
       padrinho = creditors.find(p => p.id === myCreditor.padrinhoId);
+    } else {
+      // Treat the linked creditor as the contact
+      padrinho = myCreditor;
     }
   }
+  // Fallback: default creditor
+  if (!padrinho) padrinho = creditors.find(c => c.id === 'default') || { id: 'default', nome: 'Suporte ÁgilBank' };
   
-  const padrinhoName = padrinho ? padrinho.nome : 'Suporte Principal';
-  const padrinhoId = padrinho ? padrinho.id : 'default';
+  const padrinhoName = padrinho.nome || 'Suporte ÁgilBank';
+  const padrinhoId = padrinho.id || 'default';
   
   const nameEl = document.getElementById('cl-chat-padrinho-name');
-  if (nameEl) nameEl.textContent = padrinhoName;
+  if (nameEl) nameEl.textContent = `💬 ${padrinhoName}`;
 
-  // Render messages
+  // Render messages — also match 'default' as sender (super admin)
   const allMessages = settings.chatMessages || [];
   const chatMessages = allMessages.filter(m => 
     (m.fromId === user.id && m.toId === padrinhoId) ||
-    (m.fromId === padrinhoId && m.toId === user.id)
+    (m.fromId === padrinhoId && m.toId === user.id) ||
+    (m.fromId === 'default' && m.toId === user.id) ||
+    (m.fromId === user.id && m.toId === 'default')
   );
+
+  // Deduplicate
+  const seen = new Set();
+  const uniqueMessages = chatMessages.filter(m => {
+    if (seen.has(m.timestamp)) return false;
+    seen.add(m.timestamp);
+    return true;
+  });
 
   const container = document.getElementById('cl-chat-messages-container');
   if (container) {
-    if (chatMessages.length === 0) {
-      container.innerHTML = `<div style="text-align:center; color:var(--text-muted); font-size:12px; margin-top:20px;">Nenhuma mensagem registrada. Envie um "Olá" para falar com seu padrinho!</div>`;
+    if (uniqueMessages.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center; padding: 30px 20px;">
+          <div style="font-size: 40px; margin-bottom: 12px;">👋</div>
+          <div style="color:var(--text-muted); font-size:13px;">Nenhuma mensagem ainda.</div>
+          <div style="color:var(--text-muted); font-size:12px; margin-top:6px;">Envie um "Olá" para iniciar uma conversa com seu Padrinho!</div>
+        </div>`;
     } else {
-      container.innerHTML = chatMessages.map(m => {
+      container.innerHTML = uniqueMessages.map(m => {
         const isMe = m.fromId === user.id;
-        const align = isMe ? 'align-self: flex-end; background: var(--green); color: white;' : 'align-self: flex-start; background: var(--border); color: var(--text-pri);';
+        const align = isMe 
+          ? 'align-self: flex-end; background: var(--green); color: white; border-radius: 12px 12px 2px 12px;' 
+          : 'align-self: flex-start; background: rgba(255,255,255,0.07); color: var(--text-pri); border-radius: 12px 12px 12px 2px;';
         const contentHtml = m.audio 
-          ? `<audio src="${m.audio}" controls style="max-width: 100%; min-width: 200px; margin-top: 4px; border-radius: 4px; display: block;"></audio>` 
+          ? `<audio src="${m.audio}" controls style="max-width: 100%; min-width: 200px; margin-top: 4px; border-radius: 20px; display: block;"></audio>` 
           : `<div>${m.text}</div>`;
+        const sender = isMe ? 'Você' : padrinhoName;
         return `
-          <div style="max-width: 70%; padding: 8px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 4px; ${align}">
+          <div style="max-width: 72%; padding: 10px 14px; font-size: 13px; margin-bottom: 8px; display:flex; flex-direction:column; ${align}">
+            <div style="font-size:10px; opacity:0.7; margin-bottom:4px; font-weight:600;">${sender}</div>
             ${contentHtml}
-            <div style="font-size: 9px; text-align: right; margin-top: 4px; opacity: 0.7;">${new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+            <div style="font-size: 9px; text-align: right; margin-top: 4px; opacity: 0.6;">${new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
           </div>`;
       }).join('');
       container.scrollTop = container.scrollHeight;
@@ -3388,15 +3490,19 @@ async function toggleAdminAudioRecording() {
 
 function saveAdminAudioMessage(base64Audio) {
   const user = DB.currentUser || {};
+  const isSuper = user.creditorId === 'all';
   const settings = DB.settings;
   const messages = settings.chatMessages || [];
 
+  const sendFromId = isSuper ? 'default' : user.creditorId;
+
   const newMsg = {
-    fromId: user.creditorId,
+    fromId: sendFromId,
     toId: activeChatContactId,
     text: '',
     audio: base64Audio,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    readByAdmin: true
   };
 
   messages.push(newMsg);
@@ -3404,5 +3510,6 @@ function saveAdminAudioMessage(base64Audio) {
   DB.settings = settings;
 
   selectChatContact(activeChatContactId);
+  loadChatPanel();
 }
 
