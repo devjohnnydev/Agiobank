@@ -1399,8 +1399,6 @@ body {
 }
 
 @media (max-width: 768px) {
-  .sidebar { width: 200px; }
-  .main-content { margin-left: 200px; }
   .content-section { padding: 20px; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .request-body { grid-template-columns: 1fr 1fr; }
