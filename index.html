@@ -454,8 +454,8 @@
           <div class="stat-card green">
             <div class="stat-icon">💵</div>
             <div class="stat-info">
-              <div class="stat-label">Disponível para Empréstimo</div>
-              <div class="stat-value" id="cl-disponivel">R$ 5.000,00</div>
+              <div class="stat-label">Valor Solicitado</div>
+              <div class="stat-value" id="cl-disponivel">R$ 0,00</div>
             </div>
           </div>
           <div class="stat-card blue">
@@ -465,7 +465,7 @@
               <div class="stat-value" id="cl-ativos">0</div>
             </div>
           </div>
-          <div class="stat-card orange">
+          <div class="stat-card orange" id="stat-card-vencimento">
             <div class="stat-icon">⏰</div>
             <div class="stat-info">
               <div class="stat-label">Próximo Vencimento</div>
@@ -475,8 +475,15 @@
           <div class="stat-card red">
             <div class="stat-icon">💸</div>
             <div class="stat-info">
-              <div class="stat-label">Total Devendo</div>
+              <div class="stat-label">Juros do Mês / Parcela</div>
               <div class="stat-value" id="cl-total-devendo">R$ 0,00</div>
+            </div>
+          </div>
+          <div class="stat-card purple" style="cursor:pointer;" onclick="contactPadrinho()">
+            <div class="stat-icon">💬</div>
+            <div class="stat-info">
+              <div class="stat-label">Suporte / Padrinho</div>
+              <div class="stat-value" id="cl-padrinho-nome" style="font-size: 16px;">Falar no WhatsApp</div>
             </div>
           </div>
         </div>
@@ -545,19 +552,9 @@
                 <label style="font-size: 11px;">Nome Completo do Avalista</label>
                 <input type="text" id="lr-avalista-nome" placeholder="Nome do avalista" style="padding: 8px; font-size: 13px;" />
               </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                <div class="input-group" style="margin-bottom: 0;">
-                  <label style="font-size: 11px;">CPF do Avalista</label>
-                  <input type="text" id="lr-avalista-cpf" placeholder="000.000.000-00" maxlength="14" oninput="maskCPF(this)" style="padding: 8px; font-size: 13px;" />
-                </div>
-                <div class="input-group" style="margin-bottom: 0;">
-                  <label style="font-size: 11px;">Telefone do Avalista</label>
-                  <input type="text" id="lr-avalista-tel" placeholder="(00) 00000-0000" maxlength="15" oninput="maskPhone(this)" style="padding: 8px; font-size: 13px;" />
-                </div>
-              </div>
-              <div class="input-group" style="margin-top: 8px; margin-bottom: 0;">
-                <label style="font-size: 11px;">Renda Mensal do Avalista</label>
-                <input type="text" id="lr-avalista-renda" placeholder="R$ 0,00" oninput="maskMoney(this)" style="padding: 8px; font-size: 13px;" />
+              <div class="input-group" style="margin-bottom: 0;">
+                <label style="font-size: 11px;">Telefone do Avalista</label>
+                <input type="text" id="lr-avalista-tel" placeholder="(00) 00000-0000" maxlength="15" oninput="maskPhone(this)" style="padding: 8px; font-size: 13px;" />
               </div>
             </div>
 

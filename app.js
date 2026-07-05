@@ -715,8 +715,7 @@ async function finishCompleteRegistration() {
   }
 
   if (!capturedCompleteSelfie) {
-    toast('Atenção', 'A foto de segurança é obrigatória.', 'warning');
-    return;
+    toast('Aviso', 'Nenhuma foto de segurança capturada. O cadastro será concluído sem foto.', 'info');
   }
 
   if (!termos) {
@@ -829,36 +828,76 @@ function loadClientDashboard(clientId) {
   const settings = DB.settings;
 
   // Stats
-  let totalDevendo = 0;
   let nextVcto = null;
+  let totalSolicitado = loans.reduce((acc, l) => acc + l.valor, 0);
+  let nextInstallmentSum = 0;
 
   active.forEach(l => {
     if (l.parcelas) {
       const pendParcelas = l.parcelas.filter(p => p.status !== 'paid');
-      pendParcelas.forEach(p => {
-        totalDevendo += p.valor;
-        if (!nextVcto || p.vcto < nextVcto) nextVcto = p.vcto;
-      });
+      if (pendParcelas.length > 0) {
+        // Find next pending installment for this loan
+        pendParcelas.sort((a, b) => new Date(a.vcto) - new Date(b.vcto));
+        nextInstallmentSum += pendParcelas[0].valor;
+        pendParcelas.forEach(p => {
+          if (!nextVcto || p.vcto < nextVcto) nextVcto = p.vcto;
+        });
+      }
     }
   });
 
+  // Highlight next vencimento card if <= 5 days
+  const vencEl = document.getElementById('cl-vencimento');
+  const vencCard = document.getElementById('stat-card-vencimento');
+  if (vencEl) vencEl.textContent = nextVcto ? formatDate(nextVcto) : '—';
+  if (vencCard) {
+    if (nextVcto) {
+      const daysTo = Math.ceil((new Date(nextVcto + 'T12:00:00') - new Date()) / 86400000);
+      if (daysTo <= 5 && daysTo >= 0) {
+        vencCard.style.border = '1px solid var(--orange)';
+        vencCard.style.boxShadow = '0 0 15px rgba(245,158,11,0.2)';
+      } else {
+        vencCard.style.border = '';
+        vencCard.style.boxShadow = '';
+      }
+    } else {
+      vencCard.style.border = '';
+      vencCard.style.boxShadow = '';
+    }
+  }
+
+  // Load Padrinho Info
+  const user = DB.currentUser || {};
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  const myCreditor = creditors.find(cr => cr.id === user.creditorId || (!user.creditorId && cr.id === 'default'));
+  let padrinho = null;
+  if (myCreditor) {
+    if (myCreditor.role === 'padrinho') {
+      padrinho = myCreditor;
+    } else if (myCreditor.padrinhoId) {
+      padrinho = creditors.find(p => p.id === myCreditor.padrinhoId);
+    }
+  }
+  const padrinhoNameEl = document.getElementById('cl-padrinho-nome');
+  if (padrinhoNameEl) {
+    padrinhoNameEl.textContent = padrinho ? padrinho.nome : 'Suporte Principal';
+  }
+
   document.getElementById('cl-ativos').textContent = active.length;
-  document.getElementById('cl-total-devendo').textContent = formatMoney(totalDevendo);
-  document.getElementById('cl-vencimento').textContent = nextVcto ? formatDate(nextVcto) : '—';
-  document.getElementById('cl-disponivel').textContent = formatMoney(settings.limiteMax || 5000);
+  document.getElementById('cl-total-devendo').textContent = formatMoney(nextInstallmentSum);
+  document.getElementById('cl-disponivel').textContent = formatMoney(totalSolicitado);
 
   // Loans list
   const loansList = document.getElementById('cl-loans-list');
   if (!active.length) {
-    loansList.innerHTML = `<div class="empty-state"><div class="empty-icon">💰</div><p>Você não tem empréstimos ativos.<br><a class="link" onclick="clientNav('loan-request')">Solicitar agora →</a></p></div>`;
+    loansList.innerHTML = `<div class="empty-state"><div class="empty-icon">💰</div><p>Você não tem empréstimos ativos.<br><a class="link" onclick="clientNav('request')">Solicitar agora →</a></p></div>`;
     return;
   }
 
   loansList.innerHTML = active.map(l => {
-    const client = DB.clients.find(c => c.id === l.clientId);
     const pendParcelas = l.parcelas ? l.parcelas.filter(p => p.status !== 'paid') : [];
-    const pending = pendParcelas.reduce((acc, p) => acc + p.valor, 0);
     const nextP = pendParcelas[0];
+    const totalPaid = l.parcelas ? l.parcelas.filter(p => p.status === 'paid').reduce((acc, p) => acc + p.valor, 0) : 0;
     return `
       <div class="loan-item">
         <div class="loan-item-info">
@@ -866,8 +905,8 @@ function loadClientDashboard(clientId) {
           <div class="loan-item-meta">Prazo: ${l.prazo} meses · Juros: ${l.juros}%${nextP ? ` · Próx. venc: ${formatDate(nextP.vcto)}` : ''}</div>
         </div>
         <div class="loan-item-amount">
-          <div class="loan-item-value">${formatMoney(pending)}</div>
-          <div class="loan-item-sub">restante de ${formatMoney(l.totalComJuros)}</div>
+          <div class="loan-item-value">${formatMoney(nextP ? nextP.valor : 0)}</div>
+          <div class="loan-item-sub">Solicitado: ${formatMoney(l.valor)} | Pago: ${formatMoney(totalPaid)}</div>
         </div>
         <span class="status-badge status-${l.status}">${statusLabel(l.status)}</span>
       </div>`;
@@ -903,6 +942,28 @@ function loadClientDashboard(clientId) {
   }
 }
 
+function contactPadrinho() {
+  const user = DB.currentUser || {};
+  const settings = DB.settings;
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  const myCreditor = creditors.find(cr => cr.id === user.creditorId || (!user.creditorId && cr.id === 'default'));
+  let padrinho = null;
+  if (myCreditor) {
+    if (myCreditor.role === 'padrinho') {
+      padrinho = myCreditor;
+    } else if (myCreditor.padrinhoId) {
+      padrinho = creditors.find(p => p.id === myCreditor.padrinhoId);
+    }
+  }
+  
+  const name = padrinho ? padrinho.nome : 'Suporte ÁgilBank';
+  const phone = padrinho && padrinho.phone ? padrinho.phone.replace(/\D/g, '') : '5511999990000';
+  const msg = encodeURIComponent(`Olá! Sou o afiliado ${user.nome} e gostaria de falar com meu padrinho.`);
+  window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+}
+
+
+
 function loadMyLoans(clientId) {
   const loans = DB.loans.filter(l => l.clientId === clientId);
   const container = document.getElementById('cl-all-loans');
@@ -923,11 +984,10 @@ function loadMyLoans(clientId) {
           </div>
           <div style="font-size:13px;color:var(--text-sec)">${formatDate(l.createdAt)}</div>
         </div>
-        <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
-          <div><label style="font-size:11px;color:var(--text-muted);display:block">Valor</label><span style="font-weight:700">${formatMoney(l.valor)}</span></div>
-          <div><label style="font-size:11px;color:var(--text-muted);display:block">Total c/ Juros</label><span style="font-weight:700;color:var(--green)">${l.totalComJuros ? formatMoney(l.totalComJuros) : '—'}</span></div>
-          <div><label style="font-size:11px;color:var(--text-muted);display:block">Juros</label><span style="font-weight:700">${l.juros != null ? l.juros + '%' : 'Aguardando'}</span></div>
-          <div><label style="font-size:11px;color:var(--text-muted);display:block">Pago</label><span style="font-weight:700;color:var(--green)">${formatMoney(pago)}</span></div>
+        <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+          <div><label style="font-size:11px;color:var(--text-muted);display:block">Valor Solicitado</label><span style="font-weight:700">${formatMoney(l.valor)}</span></div>
+          <div><label style="font-size:11px;color:var(--text-muted);display:block">Valor Pago</label><span style="font-weight:700;color:var(--green)">${formatMoney(pago)}</span></div>
+          <div><label style="font-size:11px;color:var(--text-muted);display:block">Taxa de Juros</label><span style="font-weight:700">${l.juros != null ? l.juros + '%' : 'Aguardando'}</span></div>
         </div>
         ${l.parcelas ? `
         <div style="padding:0 20px 16px">
@@ -1117,18 +1177,16 @@ function submitLoanRequest() {
     toast('Aviso', 'Nenhuma foto de segurança capturada. O pedido será enviado sem foto.', 'info');
   }
 
-  const avalistaNome = document.getElementById('lr-avalista-nome').value.trim();
-  const avalistaCpf = document.getElementById('lr-avalista-cpf').value.trim();
-  const avalistaTel = document.getElementById('lr-avalista-tel').value.trim();
-  const avalistaRenda = document.getElementById('lr-avalista-renda').value.trim();
+  const avalistaNome = document.getElementById('lr-avalista-nome')?.value.trim() || '';
+  const avalistaTel = document.getElementById('lr-avalista-tel')?.value.trim() || '';
 
   let avalista = null;
-  if (avalistaNome || avalistaCpf || avalistaTel || avalistaRenda) {
+  if (avalistaNome || avalistaTel) {
     avalista = {
       nome: avalistaNome || '—',
-      cpf: avalistaCpf || '—',
+      cpf: '—',
       tel: avalistaTel || '—',
-      renda: avalistaRenda || '—'
+      renda: '—'
     };
   }
 
@@ -1158,9 +1216,7 @@ function submitLoanRequest() {
   document.getElementById('lr-motivo').value = '';
   document.getElementById('lr-desc').value = '';
   if (document.getElementById('lr-avalista-nome')) document.getElementById('lr-avalista-nome').value = '';
-  if (document.getElementById('lr-avalista-cpf')) document.getElementById('lr-avalista-cpf').value = '';
   if (document.getElementById('lr-avalista-tel')) document.getElementById('lr-avalista-tel').value = '';
-  if (document.getElementById('lr-avalista-renda')) document.getElementById('lr-avalista-renda').value = '';
   updateLoanPreview();
 
   capturedSelfie = null;
