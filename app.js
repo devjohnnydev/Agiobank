@@ -2254,6 +2254,26 @@ function loadAllClients() {
       ? `<img src="${selfieUrl}" class="client-avatar" style="object-fit: cover; border: none; padding: 0;" />`
       : `<div class="client-avatar">${initials}</div>`;
 
+    // Fetch creditor (afiliado)
+    const settings = DB.settings;
+    const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+    const creditor = creditors.find(cr => cr.id === c.creditorId || (!c.creditorId && cr.id === 'default'));
+    const creditorName = creditor ? creditor.nome : '—';
+    const roleLabel = creditor && creditor.role === 'afiliado' ? 'Afiliado' : 'Padrinho';
+
+    // Fetch padrinho
+    let padrinhoName = '—';
+    if (creditor && creditor.padrinhoId) {
+      const padrinho = creditors.find(p => p.id === creditor.padrinhoId);
+      if (padrinho) padrinhoName = padrinho.nome;
+    } else if (creditor && creditor.role === 'padrinho') {
+      padrinhoName = creditor.nome;
+    }
+
+    // Fetch avalista
+    const loanWithAval = clientLoans.find(l => l.avalista && l.avalista.nome);
+    const avalName = loanWithAval ? loanWithAval.avalista.nome : '—';
+
     return `
       <div class="client-card">
         <div class="client-card-header">
@@ -2270,6 +2290,9 @@ function loadAllClients() {
           <div class="cs-item"><label>Devendo</label><span class="${totalDevendo > 0 ? overdueL.length ? 'danger' : 'warning' : ''}">${formatMoney(totalDevendo)}</span></div>
           <div class="cs-item"><label>Emprego</label><span>${c.emprego || '—'}</span></div>
           <div class="cs-item"><label>Renda</label><span>${c.renda || '—'}</span></div>
+          <div class="cs-item"><label>Afiliado/Credor</label><span>${creditorName} (${roleLabel})</span></div>
+          <div class="cs-item"><label>Padrinho</label><span>${padrinhoName}</span></div>
+          <div class="cs-item" style="grid-column: span 2;"><label>Avalista</label><span>${avalName}</span></div>
           <div class="cs-item" style="grid-column: span 2;">
             <label>Responsável</label>
             <span style="cursor:pointer; color:var(--primary); font-weight:bold;" onclick="editResponsavel('${c.id}')">
@@ -2344,11 +2367,28 @@ window.adminAddClient = function() {
   loans.push(newLoan);
   DB.loans = loans;
 
+  // Extrai informações do avalista, se informadas
+  const avalNome = document.getElementById('add-cli-aval-nome')?.value.trim() || '';
+  const avalCpf = document.getElementById('add-cli-aval-cpf')?.value.trim() || '';
+  const avalTel = document.getElementById('add-cli-aval-tel')?.value.trim() || '';
+  const avalRenda = document.getElementById('add-cli-aval-renda')?.value.trim() || '';
+  let avalista = null;
+  if (avalNome || avalCpf || avalTel || avalRenda) {
+    avalista = { nome: avalNome || '—', cpf: avalCpf || '—', tel: avalTel || '—', renda: avalRenda || '—' };
+  }
+
   // Usa a função de aprovação com taxa que já calcula as parcelas
-  approveWithRate(loanId, taxa, tipo, vcto);
+  approveWithRate(loanId, taxa, tipo, vcto, avalista, null, true, false);
 
   toast('Devedor Adicionado!', 'Cliente e empréstimo registrados com sucesso.', 'success');
   closeModal('modal-add-client');
+  
+  // Limpar campos adicionais do avalista
+  if (document.getElementById('add-cli-aval-nome')) document.getElementById('add-cli-aval-nome').value = '';
+  if (document.getElementById('add-cli-aval-cpf')) document.getElementById('add-cli-aval-cpf').value = '';
+  if (document.getElementById('add-cli-aval-tel')) document.getElementById('add-cli-aval-tel').value = '';
+  if (document.getElementById('add-cli-aval-renda')) document.getElementById('add-cli-aval-renda').value = '';
+
   loadAllClients();
 };
 

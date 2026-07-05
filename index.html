@@ -1273,6 +1273,12 @@
         </select>
       </div>
       <div class="input-group"><label>1º Vencimento</label><input type="date" id="add-cli-vcto"></div>
+      <hr style="margin:15px 0; border:1px solid var(--border);">
+      <h4 style="margin-bottom:10px;">🛡️ Avalista / Fiador (Opcional)</h4>
+      <div class="input-group"><label>Nome do Avalista</label><input type="text" id="add-cli-aval-nome" placeholder="Nome Completo"></div>
+      <div class="input-group"><label>CPF do Avalista</label><input type="text" id="add-cli-aval-cpf" placeholder="000.000.000-00" maxlength="14" oninput="maskCPF(this)"></div>
+      <div class="input-group"><label>Telefone do Avalista</label><input type="text" id="add-cli-aval-tel" placeholder="(00) 00000-0000" maxlength="15" oninput="maskPhone(this)"></div>
+      <div class="input-group"><label>Renda do Avalista</label><input type="text" id="add-cli-aval-renda" placeholder="R$ 0,00" oninput="maskMoney(this)"></div>
     </div>
     <div class="modal-footer">
       <button class="btn-outline" onclick="closeModal('modal-add-client')">Cancelar</button>
