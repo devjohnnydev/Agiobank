@@ -4159,4 +4159,45 @@ window.selectCalendarDay = function(dateString) {
   }
 };
 
+window.clearSystemData = async function() {
+  if (!confirm('Tem certeza que deseja apagar TODOS os dados do sistema? Esta ação é irreversível!')) return;
+
+  // Reset local memory state
+  DB.clients = [];
+  DB.loans = [];
+  DB.smsHistory = [];
+  
+  // Reset settings but keep DEFAULT_SETTINGS (including the default creditor)
+  DB.settings = { ...DEFAULT_SETTINGS };
+
+  // Explicitly trigger sync to server with empty state
+  try {
+    const payload = {
+      clients: [],
+      loans: [],
+      smsHistory: [],
+      settings: DEFAULT_SETTINGS
+    };
+    
+    // Attempt database sync if server API is reachable
+    const res = await fetch('/api/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    
+    if (res.ok) {
+      toast('Sucesso', 'Todos os dados foram apagados do banco e local!', 'success');
+    }
+  } catch (err) {
+    console.error('Error clearing remote state:', err);
+  }
+
+  // Clear local storage and reload
+  localStorage.clear();
+  setTimeout(() => {
+    location.reload();
+  }, 1000);
+};
+
 
