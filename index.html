@@ -418,6 +418,7 @@
           <div class="nav-item active" id="cnav-dashboard" onclick="clientNav('dashboard')">🏠 Início</div>
           <div class="nav-item" id="cnav-request" onclick="clientNav('request')">💸 Pedir Dinheiro</div>
           <div class="nav-item" id="cnav-my-loans" onclick="clientNav('my-loans')">📋 Meus Pedidos</div>
+          <div class="nav-item" id="cnav-chat" onclick="clientNav('chat')">💬 Falar com Padrinho</div>
           <div class="nav-item" onclick="document.getElementById('modal-install-guide').classList.remove('hidden')">📲 Baixar Aplicativo</div>
       </nav>
       <div class="sidebar-footer">
@@ -661,6 +662,36 @@
           <h1>👤 Meu Perfil</h1>
         </div>
         <div class="profile-card" id="cl-profile-data"></div>
+      </section>
+
+      <!-- Chat com Padrinho -->
+      <section class="content-section hidden" id="cl-chat">
+        <div class="page-header">
+          <h1>💬 Conversa com Padrinho</h1>
+          <p class="page-sub" id="cl-chat-subtitle">Fale diretamente com seu Padrinho de empréstimo.</p>
+        </div>
+        <div style="display: flex; flex-direction: column; height: 60vh; background: var(--navy); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; max-width: 800px; margin: 0 auto;">
+          <div id="cl-chat-header-title" style="padding: 12px 20px; font-weight: 700; border-bottom: 1px solid var(--border); background: var(--navy-mid); font-size: 14px; display: flex; align-items: center; justify-content: space-between;">
+            <span id="cl-chat-padrinho-name">Carregando Padrinho...</span>
+            <span style="font-size: 11px; color: var(--green); display: flex; align-items: center; gap: 4px;">● Online</span>
+          </div>
+          <div id="cl-chat-messages-container" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: rgba(0,0,0,0.15);">
+            <!-- message bubbles -->
+          </div>
+          
+          <!-- Audio recording status / progress bar -->
+          <div id="cl-chat-recording-status" style="display: none; padding: 8px 20px; background: rgba(239, 68, 68, 0.1); border-top: 1px solid var(--border); font-size: 12px; color: var(--red); align-items: center; justify-content: space-between;">
+            <span style="display: flex; align-items: center; gap: 8px;">🔴 <span class="blink">Gravando áudio...</span></span>
+            <span id="cl-chat-record-timer">00:00</span>
+          </div>
+
+          <div style="padding: 12px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: center; background: var(--navy-mid);">
+            <!-- Audio recording button -->
+            <button id="cl-chat-mic-btn" type="button" class="btn-outline" style="padding: 10px; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; margin-top: 0;" onclick="toggleAudioRecording()">🎙️</button>
+            <input type="text" id="cl-chat-input-text" placeholder="Digite uma mensagem..." style="flex: 1; padding: 12px; border-radius: 20px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); color: var(--text-pri); outline: none; font-size: 14px;" onkeydown="if(event.key === 'Enter') sendClientChatMessage()" />
+            <button class="btn-primary" onclick="sendClientChatMessage()" style="padding: 10px 20px; border-radius: 20px;">Enviar</button>
+          </div>
+        </div>
       </section>
 
     </main>
@@ -1142,7 +1173,13 @@
             <div id="chat-messages-container" style="flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
               <!-- message bubbles -->
             </div>
-            <div style="padding: 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; background: var(--navy);">
+            <!-- Audio recording status for Admin -->
+            <div id="adm-chat-recording-status" style="display: none; padding: 8px 20px; background: rgba(239, 68, 68, 0.1); border-top: 1px solid var(--border); font-size: 12px; color: var(--red); align-items: center; justify-content: space-between;">
+              <span style="display: flex; align-items: center; gap: 8px;">🔴 <span class="blink">Gravando áudio...</span></span>
+              <span id="adm-chat-record-timer">00:00</span>
+            </div>
+            <div style="padding: 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; background: var(--navy); align-items: center;">
+              <button id="adm-chat-mic-btn" type="button" class="btn-outline" style="padding: 10px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; margin-top: 0;" onclick="toggleAdminAudioRecording()">🎙️</button>
               <input type="text" id="chat-input-text" placeholder="Digite uma mensagem..." style="flex: 1; padding: 10px; border-radius: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); color: var(--text-pri);" onkeydown="if(event.key === 'Enter') sendChatMessage()" />
               <button class="btn-primary" onclick="sendChatMessage()" style="padding: 10px 20px;">Enviar</button>
             </div>

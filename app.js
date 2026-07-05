@@ -806,6 +806,7 @@ function clientNav(section) {
     'my-loans':    'cl-my-loans',
     'payments':    'cl-payments',
     'profile':     'cl-profile',
+    'chat':        'cl-chat',
   };
 
   const sEl = document.getElementById(secMap[section]);
@@ -819,6 +820,7 @@ function clientNav(section) {
     case 'my-loans':    loadMyLoans(user.id); break;
     case 'payments':    loadPayments(user.id); break;
     case 'profile':     loadProfile(user.id); break;
+    case 'chat':        loadClientChat(); break;
   }
 }
 
@@ -2982,8 +2984,6 @@ function linkCreditorToPadrinho(creditorId) {
 // ══════════════════════════════════════
 // CHAT MESSENGER (Padrinho & Afiliado)
 // ══════════════════════════════════════
-let activeChatContactId = null;
-
 function loadChatPanel() {
   const user = DB.currentUser || {};
   const settings = DB.settings;
@@ -3001,6 +3001,16 @@ function loadChatPanel() {
     if (myPadrinho) contacts.push(myPadrinho);
   }
 
+  // Add clients belonging to this creditor
+  const myClients = DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
+  myClients.forEach(c => {
+    contacts.push({
+      id: c.id,
+      nome: `👤 Cliente: ${c.nome}`,
+      role: 'cliente'
+    });
+  });
+
   if (contacts.length === 0) {
     contactsList.innerHTML = `<div style="padding:15px; font-size:12px; color:var(--text-muted);">Nenhum contato disponível na sua rede.</div>`;
     document.getElementById('chat-header-title').textContent = 'Sem conversas disponíveis';
@@ -3011,12 +3021,13 @@ function loadChatPanel() {
   contactsList.innerHTML = contacts.map(c => {
     const isActive = activeChatContactId === c.id;
     const bg = isActive ? 'background: rgba(255,255,255,0.08); border-left: 3px solid var(--green);' : '';
+    const sub = c.role === 'cliente' ? 'Afiliado / Tomador' : (c.role === 'padrinho' ? 'Padrinho' : 'Afiliado');
     return `
       <div class="chat-contact-item" 
            onclick="selectChatContact('${c.id}')"
            style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background 0.2s; ${bg}">
         <div style="font-weight: 600; font-size: 13px; color: var(--text-pri);">${c.nome}</div>
-        <div style="font-size: 11px; color: var(--text-sec);">${c.role === 'padrinho' ? 'Padrinho' : 'Afiliado'}</div>
+        <div style="font-size: 11px; color: var(--text-sec);">${sub}</div>
       </div>`;
   }).join('');
 
@@ -3033,9 +3044,17 @@ function selectChatContact(contactId) {
   
   const settings = DB.settings;
   const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
-  const contact = creditors.find(c => c.id === contactId) || {};
+  let contact = creditors.find(c => c.id === contactId);
+  if (!contact) {
+    const cl = DB.clients.find(c => c.id === contactId);
+    if (cl) {
+      contact = { id: cl.id, nome: cl.nome, role: 'cliente' };
+    }
+  }
+  if (!contact) contact = {};
   
-  document.getElementById('chat-header-title').textContent = `Conversando com: ${contact.nome} (${contact.role === 'padrinho' ? 'Padrinho' : 'Afiliado'})`;
+  const displayRole = contact.role === 'cliente' ? 'Afiliado' : (contact.role === 'padrinho' ? 'Padrinho' : 'Credor');
+  document.getElementById('chat-header-title').textContent = `Conversando com: ${contact.nome} (${displayRole})`;
 
   // Render messages
   const user = DB.currentUser || {};
@@ -3054,9 +3073,12 @@ function selectChatContact(contactId) {
       container.innerHTML = chatMessages.map(m => {
         const isMe = m.fromId === user.creditorId;
         const align = isMe ? 'align-self: flex-end; background: var(--green); color: white;' : 'align-self: flex-start; background: var(--border); color: var(--text-pri);';
+        const contentHtml = m.audio 
+          ? `<audio src="${m.audio}" controls style="max-width: 100%; min-width: 200px; margin-top: 4px; border-radius: 4px; display: block;"></audio>` 
+          : `<div>${m.text}</div>`;
         return `
           <div style="max-width: 70%; padding: 8px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 4px; ${align}">
-            <div>${m.text}</div>
+            ${contentHtml}
             <div style="font-size: 9px; text-align: right; margin-top: 4px; opacity: 0.7;">${new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
           </div>`;
       }).join('');
@@ -3104,5 +3126,283 @@ function togglePasswordVisibility(inputId, btn) {
     input.type = 'password';
     btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
   }
+}
+
+let activeChatContactId = null;
+
+// Audio variables for client & admin chat
+let clientMediaRecorder = null;
+let clientAudioChunks = [];
+let clientIsRecording = false;
+let clientRecordStartTime = 0;
+let clientRecordInterval = null;
+
+let adminMediaRecorder = null;
+let adminAudioChunks = [];
+let adminIsRecording = false;
+let adminRecordStartTime = 0;
+let adminRecordInterval = null;
+
+function loadClientChat() {
+  const user = DB.currentUser || {};
+  const settings = DB.settings;
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  
+  // Find Padrinho
+  const myCreditor = creditors.find(cr => cr.id === user.creditorId || (!user.creditorId && cr.id === 'default'));
+  let padrinho = null;
+  if (myCreditor) {
+    if (myCreditor.role === 'padrinho') {
+      padrinho = myCreditor;
+    } else if (myCreditor.padrinhoId) {
+      padrinho = creditors.find(p => p.id === myCreditor.padrinhoId);
+    }
+  }
+  
+  const padrinhoName = padrinho ? padrinho.nome : 'Suporte Principal';
+  const padrinhoId = padrinho ? padrinho.id : 'default';
+  
+  const nameEl = document.getElementById('cl-chat-padrinho-name');
+  if (nameEl) nameEl.textContent = padrinhoName;
+
+  // Render messages
+  const allMessages = settings.chatMessages || [];
+  const chatMessages = allMessages.filter(m => 
+    (m.fromId === user.id && m.toId === padrinhoId) ||
+    (m.fromId === padrinhoId && m.toId === user.id)
+  );
+
+  const container = document.getElementById('cl-chat-messages-container');
+  if (container) {
+    if (chatMessages.length === 0) {
+      container.innerHTML = `<div style="text-align:center; color:var(--text-muted); font-size:12px; margin-top:20px;">Nenhuma mensagem registrada. Envie um "Olá" para falar com seu padrinho!</div>`;
+    } else {
+      container.innerHTML = chatMessages.map(m => {
+        const isMe = m.fromId === user.id;
+        const align = isMe ? 'align-self: flex-end; background: var(--green); color: white;' : 'align-self: flex-start; background: var(--border); color: var(--text-pri);';
+        const contentHtml = m.audio 
+          ? `<audio src="${m.audio}" controls style="max-width: 100%; min-width: 200px; margin-top: 4px; border-radius: 4px; display: block;"></audio>` 
+          : `<div>${m.text}</div>`;
+        return `
+          <div style="max-width: 70%; padding: 8px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 4px; ${align}">
+            ${contentHtml}
+            <div style="font-size: 9px; text-align: right; margin-top: 4px; opacity: 0.7;">${new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+          </div>`;
+      }).join('');
+      container.scrollTop = container.scrollHeight;
+    }
+  }
+}
+
+function sendClientChatMessage() {
+  const user = DB.currentUser || {};
+  const settings = DB.settings;
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  
+  // Find Padrinho
+  const myCreditor = creditors.find(cr => cr.id === user.creditorId || (!user.creditorId && cr.id === 'default'));
+  let padrinho = null;
+  if (myCreditor) {
+    if (myCreditor.role === 'padrinho') {
+      padrinho = myCreditor;
+    } else if (myCreditor.padrinhoId) {
+      padrinho = creditors.find(p => p.id === myCreditor.padrinhoId);
+    }
+  }
+  const padrinhoId = padrinho ? padrinho.id : 'default';
+
+  const input = document.getElementById('cl-chat-input-text');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const messages = settings.chatMessages || [];
+  const newMsg = {
+    fromId: user.id,
+    toId: padrinhoId,
+    text: text,
+    timestamp: new Date().toISOString()
+  };
+
+  messages.push(newMsg);
+  settings.chatMessages = messages;
+  DB.settings = settings;
+
+  input.value = '';
+  loadClientChat();
+}
+
+async function toggleAudioRecording() {
+  const micBtn = document.getElementById('cl-chat-mic-btn');
+  const recordingStatus = document.getElementById('cl-chat-recording-status');
+  const timerEl = document.getElementById('cl-chat-record-timer');
+
+  if (!clientIsRecording) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      clientMediaRecorder = new MediaRecorder(stream);
+      clientAudioChunks = [];
+
+      clientMediaRecorder.ondataavailable = event => {
+        clientAudioChunks.push(event.data);
+      };
+
+      clientMediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(clientAudioChunks, { type: 'audio/wav' });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          saveAudioMessage(reader.result);
+        };
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      clientMediaRecorder.start();
+      clientIsRecording = true;
+      micBtn.innerHTML = '⏹️';
+      micBtn.style.borderColor = 'var(--red)';
+      micBtn.style.color = 'var(--red)';
+      recordingStatus.style.display = 'flex';
+      
+      clientRecordStartTime = Date.now();
+      timerEl.textContent = '00:00';
+      clientRecordInterval = setInterval(() => {
+        const secs = Math.floor((Date.now() - clientRecordStartTime) / 1000);
+        const mins = Math.floor(secs / 60);
+        const displaySecs = String(secs % 60).padStart(2, '0');
+        const displayMins = String(mins % 60).padStart(2, '0');
+        timerEl.textContent = `${displayMins}:${displaySecs}`;
+      }, 1000);
+      
+    } catch (err) {
+      console.error('Error starting audio recording:', err);
+      toast('Erro de microfone', 'Não foi possível acessar o microfone.', 'error');
+    }
+  } else {
+    if (clientMediaRecorder && clientMediaRecorder.state !== 'inactive') {
+      clientMediaRecorder.stop();
+    }
+    clientIsRecording = false;
+    micBtn.innerHTML = '🎙️';
+    micBtn.style.borderColor = '';
+    micBtn.style.color = '';
+    recordingStatus.style.display = 'none';
+    clearInterval(clientRecordInterval);
+  }
+}
+
+function saveAudioMessage(base64Audio) {
+  const user = DB.currentUser || {};
+  const settings = DB.settings;
+  const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
+  
+  // Find Padrinho
+  const myCreditor = creditors.find(cr => cr.id === user.creditorId || (!user.creditorId && cr.id === 'default'));
+  let padrinho = null;
+  if (myCreditor) {
+    if (myCreditor.role === 'padrinho') {
+      padrinho = myCreditor;
+    } else if (myCreditor.padrinhoId) {
+      padrinho = creditors.find(p => p.id === myCreditor.padrinhoId);
+    }
+  }
+  const padrinhoId = padrinho ? padrinho.id : 'default';
+
+  const messages = settings.chatMessages || [];
+  const newMsg = {
+    fromId: user.id,
+    toId: padrinhoId,
+    text: '',
+    audio: base64Audio,
+    timestamp: new Date().toISOString()
+  };
+
+  messages.push(newMsg);
+  settings.chatMessages = messages;
+  DB.settings = settings;
+
+  loadClientChat();
+}
+
+async function toggleAdminAudioRecording() {
+  const micBtn = document.getElementById('adm-chat-mic-btn');
+  const recordingStatus = document.getElementById('adm-chat-recording-status');
+  const timerEl = document.getElementById('adm-chat-record-timer');
+
+  if (!adminIsRecording) {
+    if (!activeChatContactId) {
+      toast('Atenção', 'Selecione um contato primeiro.', 'warning');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      adminMediaRecorder = new MediaRecorder(stream);
+      adminAudioChunks = [];
+
+      adminMediaRecorder.ondataavailable = event => {
+        adminAudioChunks.push(event.data);
+      };
+
+      adminMediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(adminAudioChunks, { type: 'audio/wav' });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          saveAdminAudioMessage(reader.result);
+        };
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      adminMediaRecorder.start();
+      adminIsRecording = true;
+      micBtn.innerHTML = '⏹️';
+      micBtn.style.borderColor = 'var(--red)';
+      micBtn.style.color = 'var(--red)';
+      recordingStatus.style.display = 'flex';
+      
+      adminRecordStartTime = Date.now();
+      timerEl.textContent = '00:00';
+      adminRecordInterval = setInterval(() => {
+        const secs = Math.floor((Date.now() - adminRecordStartTime) / 1000);
+        const mins = Math.floor(secs / 60);
+        const displaySecs = String(secs % 60).padStart(2, '0');
+        const displayMins = String(mins % 60).padStart(2, '0');
+        timerEl.textContent = `${displayMins}:${displaySecs}`;
+      }, 1000);
+      
+    } catch (err) {
+      console.error('Error starting audio recording:', err);
+      toast('Erro de microfone', 'Não foi possível acessar o microfone.', 'error');
+    }
+  } else {
+    if (adminMediaRecorder && adminMediaRecorder.state !== 'inactive') {
+      adminMediaRecorder.stop();
+    }
+    adminIsRecording = false;
+    micBtn.innerHTML = '🎙️';
+    micBtn.style.borderColor = '';
+    micBtn.style.color = '';
+    recordingStatus.style.display = 'none';
+    clearInterval(adminRecordInterval);
+  }
+}
+
+function saveAdminAudioMessage(base64Audio) {
+  const user = DB.currentUser || {};
+  const settings = DB.settings;
+  const messages = settings.chatMessages || [];
+
+  const newMsg = {
+    fromId: user.creditorId,
+    toId: activeChatContactId,
+    text: '',
+    audio: base64Audio,
+    timestamp: new Date().toISOString()
+  };
+
+  messages.push(newMsg);
+  settings.chatMessages = messages;
+  DB.settings = settings;
+
+  selectChatContact(activeChatContactId);
 }
 
