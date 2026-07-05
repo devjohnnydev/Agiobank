@@ -784,63 +784,63 @@
         <div id="affiliate-alert-banner" style="display:none; margin-top: 15px; margin-bottom: 15px; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #f87171; padding: 12px; border-radius: 6px; font-size: 13px; font-weight: bold;"></div>
 
         <div class="stats-grid">
-          <div class="stat-card green">
+          <div class="stat-card green" style="cursor:pointer;" onclick="adminNav('loans')" title="Ver todos os empréstimos ativos">
             <div class="stat-icon">💵</div>
             <div class="stat-info">
               <div class="stat-label">Capital na Rua (Principal)</div>
               <div class="stat-value" id="adm-total-emprestado">R$ 0,00</div>
             </div>
           </div>
-          <div class="stat-card blue">
+          <div class="stat-card blue" style="cursor:pointer;" onclick="adminNav('loans')" title="Ver empréstimos a receber">
             <div class="stat-icon">📥</div>
             <div class="stat-info">
               <div class="stat-label">Total a Receber (Principal + Juros)</div>
               <div class="stat-value" id="adm-a-receber">R$ 0,00</div>
             </div>
           </div>
-          <div class="stat-card orange">
+          <div class="stat-card orange" style="cursor:pointer;" onclick="adminNav('clients')" title="Ver todos os clientes">
             <div class="stat-icon">👥</div>
             <div class="stat-info">
               <div class="stat-label">Total de Clientes</div>
               <div class="stat-value" id="adm-total-clientes">0</div>
             </div>
           </div>
-          <div class="stat-card red">
+          <div class="stat-card red" style="cursor:pointer;" onclick="adminNavLoansFilter('overdue')" title="Ver pagamentos atrasados">
             <div class="stat-icon">⚠️</div>
             <div class="stat-info">
               <div class="stat-label">Pagamentos Atrasados</div>
               <div class="stat-value" id="adm-atrasados">0</div>
             </div>
           </div>
-          <div class="stat-card purple">
+          <div class="stat-card purple" style="cursor:pointer;" onclick="adminNavLoansFilter('active')" title="Ver empréstimos ativos">
             <div class="stat-icon">✅</div>
             <div class="stat-info">
               <div class="stat-label">Empréstimos Ativos</div>
               <div class="stat-value" id="adm-emprestimos-ativos">0</div>
             </div>
           </div>
-          <div class="stat-card teal">
+          <div class="stat-card teal" style="cursor:pointer;" onclick="adminNavLoansFilter('paid')" title="Ver empréstimos pagos">
             <div class="stat-icon">💹</div>
             <div class="stat-info">
               <div class="stat-label">Juros Recebidos (Lucro Realizado)</div>
               <div class="stat-value" id="adm-juros-recebidos">R$ 0,00</div>
             </div>
           </div>
-          <div class="stat-card blue">
+          <div class="stat-card blue" style="cursor:pointer;" onclick="adminNavLoansFilter('active')" title="Ver lucro pendente">
             <div class="stat-icon">📈</div>
             <div class="stat-info">
               <div class="stat-label">Juros a Receber (Lucro Pendente)</div>
               <div class="stat-value" id="adm-juros-a-receber">R$ 0,00</div>
             </div>
           </div>
-          <div class="stat-card orange">
+          <div class="stat-card orange" style="cursor:pointer;" onclick="adminNav('rede')" title="Ver rede de credores e comissões">
             <div class="stat-icon">💸</div>
             <div class="stat-info">
               <div class="stat-label">Comissões Pendentes (A Pagar)</div>
               <div class="stat-value" id="adm-com-pendentes">R$ 0,00</div>
             </div>
           </div>
-          <div class="stat-card green">
+          <div class="stat-card green" style="cursor:pointer;" onclick="adminNav('rede')" title="Ver rede de credores e comissões">
             <div class="stat-icon">💰</div>
             <div class="stat-info">
               <div class="stat-label">Comissões Pagas</div>

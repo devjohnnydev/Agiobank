@@ -1299,6 +1299,16 @@ function adminNav(section) {
   }
 }
 
+// Navigate directly to loans section with a specific filter
+function adminNavLoansFilter(filter) {
+  // Navigate to loans section
+  adminNav('loans');
+  // Apply the filter after a short delay to ensure the section is rendered
+  setTimeout(() => {
+    filterByStatus(filter);
+  }, 50);
+}
+
 function updateAdminBadges() {
   const user = DB.currentUser || {};
   const isSuper = user.creditorId === 'all';
