@@ -59,55 +59,47 @@
         <p class="brand-slogan">FORÇA QUE IMPULSIONA O QUE IMPORTA</p>
       </div>
 
-      <div class="login-tabs">
-        <button class="tab-btn active" onclick="switchLoginTab('client')" id="tab-client">Cliente</button>
-        <button class="tab-btn" onclick="switchLoginTab('admin')" id="tab-admin">Admin</button>
-      </div>
-
-      <div id="login-client" class="login-form active">
+      <!-- Unified Login Form -->
+      <div id="login-unified" class="login-form active">
         <h2>Bem-vindo de volta!</h2>
-        <p class="login-sub">Acesse sua conta ou crie uma nova</p>
+        <p class="login-sub">Acesse sua conta — cliente ou administrador</p>
+
+        <!-- Rate-limit alert -->
+        <div id="login-lockout-banner" style="display:none; background:rgba(239,68,68,0.12); border:1px solid var(--red); border-radius:var(--radius-sm); padding:12px 14px; margin-bottom:16px; font-size:13px; color:var(--red); text-align:center;">
+          🔒 <span id="login-lockout-msg">Aguarde antes de tentar novamente.</span>
+        </div>
+
         <div class="input-group">
-          <label>CPF ou E-mail</label>
-          <input type="text" id="cl-login-user" placeholder="000.000.000-00" />
+          <label>CPF, E-mail ou Usuário</label>
+          <input type="text" id="unified-login-user" placeholder="CPF, e-mail ou nome de usuário"
+            onkeydown="if(event.key==='Enter') document.getElementById('unified-login-pass').focus()" />
         </div>
         <div class="input-group">
           <label>Senha</label>
           <div class="password-container">
-            <input type="password" id="cl-login-pass" placeholder="••••••••" />
-            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('cl-login-pass', this)" aria-label="Mostrar Senha">
+            <input type="password" id="unified-login-pass" placeholder="••••••••"
+              onkeydown="if(event.key==='Enter') loginUnified()" />
+            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('unified-login-pass', this)" aria-label="Mostrar Senha">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
             </button>
           </div>
         </div>
-        <button class="btn-primary full" onclick="loginClient()">Entrar</button>
+
+        <!-- Attempt indicator dots -->
+        <div id="login-attempt-dots" style="display:none; margin-bottom:12px; text-align:center;">
+          <span style="font-size:11px; color:var(--text-muted); margin-right:6px;">Tentativas restantes:</span>
+          <span id="login-dots-row"></span>
+        </div>
+
+        <button class="btn-primary full" id="login-submit-btn" onclick="loginUnified()">Entrar</button>
         <div class="divider"><span>ou</span></div>
         <button class="btn-outline full" onclick="goTo('screen-register')">Criar Conta Grátis</button>
-      </div>
-
-      <div id="login-admin" class="login-form">
-        <h2>Painel Administrativo</h2>
-        <p class="login-sub">Acesso restrito a administradores</p>
-        <div class="input-group">
-          <label>E-mail ou Usuário Admin</label>
-          <input type="text" id="adm-login-user" placeholder="E-mail ou admin" />
-        </div>
-        <div class="input-group">
-          <label>Senha</label>
-          <div class="password-container">
-            <input type="password" id="adm-login-pass" placeholder="••••••••" />
-            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('adm-login-pass', this)" aria-label="Mostrar Senha">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            </button>
-          </div>
-        </div>
-        <button class="btn-primary full" onclick="loginAdmin()">Acessar Painel</button>
-        <div class="divider"><span>ou</span></div>
-        <button class="btn-outline full" style="margin-top:10px" onclick="openCreditorRegisterModal()">Criar Conta de Credor (SaaS)</button>
+        <button class="btn-outline full" style="margin-top:8px" onclick="openCreditorRegisterModal()">Criar Conta de Credor (SaaS)</button>
       </div>
     </div>
   </div>
 </div>
+
 
 <!-- ═══════════════════════════════════════════════════════════
      TELA DE CADASTRO

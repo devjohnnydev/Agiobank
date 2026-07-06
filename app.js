@@ -379,94 +379,226 @@ function closeMobileMenu() {
   document.body.style.overflow = '';
 }
 
-function switchLoginTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
-  document.getElementById(`tab-${tab}`).classList.add('active');
-  document.getElementById(`login-${tab}`).classList.add('active');
+// ══════════════════════════════════════
+// RATE-LIMIT / BRUTE-FORCE PROTECTION
+// ══════════════════════════════════════
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_LOCKOUT_MS   = 5 * 60 * 1000; // 5 minutes
+const LS_ATTEMPTS_KEY    = 'ab_login_attempts';
+const LS_LOCKOUT_KEY     = 'ab_login_lockout';
+let _lockoutInterval = null;
+
+function _getAttempts() {
+  return parseInt(localStorage.getItem(LS_ATTEMPTS_KEY) || '0', 10);
+}
+function _setAttempts(n) {
+  localStorage.setItem(LS_ATTEMPTS_KEY, String(n));
+}
+function _getLockoutUntil() {
+  return parseInt(localStorage.getItem(LS_LOCKOUT_KEY) || '0', 10);
+}
+function _setLockoutUntil(ts) {
+  localStorage.setItem(LS_LOCKOUT_KEY, String(ts));
+}
+function _clearLoginState() {
+  localStorage.removeItem(LS_ATTEMPTS_KEY);
+  localStorage.removeItem(LS_LOCKOUT_KEY);
 }
 
+function _isLockedOut() {
+  const until = _getLockoutUntil();
+  return Date.now() < until;
+}
+
+function _updateLoginUI() {
+  const attempts  = _getAttempts();
+  const lockedOut = _isLockedOut();
+  const btn       = document.getElementById('login-submit-btn');
+  const banner    = document.getElementById('login-lockout-banner');
+  const dotsWrap  = document.getElementById('login-attempt-dots');
+  const dotsRow   = document.getElementById('login-dots-row');
+  if (!btn) return;
+
+  if (lockedOut) {
+    // Show countdown
+    banner && (banner.style.display = 'block');
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+    if (dotsWrap) dotsWrap.style.display = 'none';
+    _startCountdown();
+  } else if (attempts > 0) {
+    // Show dot indicators
+    const remaining = LOGIN_MAX_ATTEMPTS - attempts;
+    if (dotsWrap) dotsWrap.style.display = 'block';
+    if (dotsRow) {
+      let dots = '';
+      for (let i = 0; i < LOGIN_MAX_ATTEMPTS; i++) {
+        const filled = i < attempts;
+        dots += `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 3px;background:${filled ? 'var(--red)' : 'rgba(255,255,255,0.15)'};transition:background 0.3s;"></span>`;
+      }
+      dotsRow.innerHTML = dots;
+    }
+    // Hide/reset banner
+    if (banner) banner.style.display = 'none';
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.style.cursor = '';
+  } else {
+    if (dotsWrap) dotsWrap.style.display = 'none';
+    if (banner) banner.style.display = 'none';
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.style.cursor = '';
+  }
+}
+
+function _startCountdown() {
+  clearInterval(_lockoutInterval);
+  const banner = document.getElementById('login-lockout-banner');
+  const msgEl  = document.getElementById('login-lockout-msg');
+  const btn    = document.getElementById('login-submit-btn');
+
+  const tick = () => {
+    const remaining = _getLockoutUntil() - Date.now();
+    if (remaining <= 0) {
+      clearInterval(_lockoutInterval);
+      _clearLoginState();
+      if (banner) banner.style.display = 'none';
+      if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.style.cursor = ''; }
+      if (msgEl) msgEl.textContent = 'Aguarde antes de tentar novamente.';
+      const dotsWrap = document.getElementById('login-attempt-dots');
+      if (dotsWrap) dotsWrap.style.display = 'none';
+      return;
+    }
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    const pad  = n => String(n).padStart(2, '0');
+    if (msgEl) msgEl.textContent = `Muitas tentativas falhas. Tente novamente em ${pad(mins)}:${pad(secs)}.`;
+  };
+  tick();
+  _lockoutInterval = setInterval(tick, 1000);
+}
+
+function _recordFailedAttempt() {
+  const attempts = _getAttempts() + 1;
+  _setAttempts(attempts);
+  if (attempts >= LOGIN_MAX_ATTEMPTS) {
+    _setLockoutUntil(Date.now() + LOGIN_LOCKOUT_MS);
+    _setAttempts(LOGIN_MAX_ATTEMPTS);
+    toast('Conta bloqueada', `Muitas tentativas. Aguarde 5 minutos.`, 'error');
+  } else {
+    const left = LOGIN_MAX_ATTEMPTS - attempts;
+    toast('Senha incorreta', `Tentativa ${attempts}/${LOGIN_MAX_ATTEMPTS}. Restam ${left}.`, 'error');
+  }
+  _updateLoginUI();
+}
+
+function _recordSuccessfulLogin() {
+  _clearLoginState();
+  _updateLoginUI();
+}
+
+// Initialize UI on page load
+document.addEventListener('DOMContentLoaded', () => {
+  if (_isLockedOut()) _updateLoginUI();
+  else if (_getAttempts() > 0) _updateLoginUI();
+});
+
 // ══════════════════════════════════════
-// AUTH
+// AUTH — UNIFIED LOGIN
 // ══════════════════════════════════════
-function loginClient() {
-  const rawUser = document.getElementById('cl-login-user').value.trim();
-  const pass = document.getElementById('cl-login-pass').value;
+function loginUnified() {
+  // Check lockout first
+  if (_isLockedOut()) {
+    toast('Acesso bloqueado', 'Aguarde o tempo de bloqueio expirar.', 'error');
+    return;
+  }
+
+  const rawUser = (document.getElementById('unified-login-user')?.value || '').trim();
+  const pass    = (document.getElementById('unified-login-pass')?.value || '');
 
   if (!rawUser) {
-    toast('Atenção', 'Informe seu CPF ou e-mail.', 'warning');
+    toast('Atenção', 'Informe seu CPF, e-mail ou usuário.', 'warning');
     return;
   }
-
-  // Normalize CPF: strip non-digits for comparison
-  const rawDigits = rawUser.replace(/\D/g, '');
-
-  const client = DB.clients.find(c => {
-    const cpfDigits = (c.cpf || '').replace(/\D/g, '');
-    return cpfDigits === rawDigits ||
-      (c.email && c.email.toLowerCase() === rawUser.toLowerCase()) ||
-      c.cpf === rawUser;
-  });
-
-  if (!client) {
-    toast('Erro', 'CPF/e-mail não encontrado. Verifique e tente novamente.', 'error');
-    return;
-  }
-
-  // Cliente adicionado manualmente pelo admin sem senha → completar cadastro
-  if (!client.senha) {
-    window.clientToComplete = client;
-    prepareCompleteRegistration(client);
-    toast('Ativação de Conta', 'Complete seu cadastro para acessar sua conta.', 'info');
-    return;
-  }
-
   if (!pass) {
     toast('Atenção', 'Informe sua senha.', 'warning');
     return;
   }
 
-  if (client.senha !== pass) {
-    toast('Erro', 'Senha incorreta. Tente novamente.', 'error');
-    return;
-  }
-
-  DB.currentUser = { ...client, role: 'client' };
-  enterClient(client);
-  toast('Bem-vindo!', `Olá, ${client.nome.split(' ')[0]}! 👋`, 'success');
-}
-
-function loginAdmin() {
-  const user = document.getElementById('adm-login-user').value.trim().toLowerCase();
-  const pass = document.getElementById('adm-login-pass').value;
-  const s = DB.settings;
+  const s         = DB.settings;
   const creditors = s.creditors || DEFAULT_SETTINGS.creditors || [];
+  const userLower = rawUser.toLowerCase();
+  const rawDigits = rawUser.replace(/\D/g, '');
 
-  // Check super admin
-  if (user === 'admin' && pass === (s.adminPass || 'admin123')) {
+  // ── 1. Check Super Admin ──
+  if ((userLower === 'admin' || userLower === 'superadmin') && pass === (s.adminPass || 'admin123')) {
+    _recordSuccessfulLogin();
     DB.currentUser = { role: 'admin', creditorId: 'all', nome: 'Super Administrador' };
     enterAdmin();
-    toast('Acesso concedido', 'Bem-vindo ao painel do Super Admin! 🔐', 'success');
+    toast('Acesso concedido', 'Bem-vindo, Super Admin! 🔐', 'success');
     return;
   }
 
-  // Check creditors list
-  const creditor = creditors.find(c => c.email.toLowerCase() === user && c.password === pass);
+  // ── 2. Check Creditors (admin) ──
+  const creditor = creditors.find(c =>
+    c.email && c.email.toLowerCase() === userLower && c.password === pass
+  );
   if (creditor) {
+    _recordSuccessfulLogin();
     DB.currentUser = { role: 'admin', creditorId: creditor.id, nome: creditor.nome };
     enterAdmin();
     toast('Acesso concedido', `Painel Credor: ${creditor.nome} 💼`, 'success');
-  } else {
-    // Fallback default creditor
-    if (user === 'agiotabraga@gmail.com' && pass === 'Ab@46431194') {
-      DB.currentUser = { role: 'admin', creditorId: 'default', nome: 'ÁgilBank Principal' };
-      enterAdmin();
-      toast('Acesso concedido', 'Bem-vindo ao painel administrativo! 🔐', 'success');
-    } else {
-      toast('Acesso negado', 'Credenciais de administrador inválidas.', 'error');
-    }
+    return;
   }
+
+  // ── 3. Check Fallback hardcoded creditor ──
+  if (userLower === 'agiotabraga@gmail.com' && pass === 'Ab@46431194') {
+    _recordSuccessfulLogin();
+    DB.currentUser = { role: 'admin', creditorId: 'default', nome: 'ÁgilBank Principal' };
+    enterAdmin();
+    toast('Acesso concedido', 'Bem-vindo ao painel! 🔐', 'success');
+    return;
+  }
+
+  // ── 4. Check Clients ──
+  const client = DB.clients.find(c => {
+    const cpfDigits = (c.cpf || '').replace(/\D/g, '');
+    return cpfDigits === rawDigits ||
+      (c.email && c.email.toLowerCase() === userLower) ||
+      c.cpf === rawUser;
+  });
+
+  if (client) {
+    // Client found — check if needs to complete registration
+    if (!client.senha) {
+      window.clientToComplete = client;
+      prepareCompleteRegistration(client);
+      toast('Ativação de Conta', 'Complete seu cadastro para acessar.', 'info');
+      return;
+    }
+    if (client.senha !== pass) {
+      _recordFailedAttempt();
+      return;
+    }
+    _recordSuccessfulLogin();
+    DB.currentUser = { ...client, role: 'client' };
+    enterClient(client);
+    toast('Bem-vindo!', `Olá, ${client.nome.split(' ')[0]}! 👋`, 'success');
+    return;
+  }
+
+  // ── 5. Nothing matched → failed attempt ──
+  _recordFailedAttempt();
 }
+
+// ── Keep old functions for backward compatibility ──
+function loginClient() { loginUnified(); }
+function loginAdmin()  { loginUnified(); }
+function switchLoginTab() {} // no-op — tabs removed
+
+
 
 function openCreditorRegisterModal() {
   document.getElementById('cred-nome').value = '';
