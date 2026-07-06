@@ -3498,36 +3498,36 @@ function loadChatPanel() {
   });
 
   if (contacts.length === 0) {
-    contactsList.innerHTML = `<div style="padding:15px; font-size:12px; color:var(--text-muted);">Nenhum contato disponível na sua rede.</div>`;
-    document.getElementById('chat-header-title').textContent = 'Nenhuma conversa ainda';
-    document.getElementById('chat-messages-container').innerHTML = `<div style="text-align:center; color:var(--text-muted); font-size:13px; margin-top:40px;">Nenhum cliente cadastrado ainda.</div>`;
+    contactsList.innerHTML = `<div class="wa-contact-item" style="cursor:default;"><div class="wa-contact-info"><div class="wa-contact-name" style="color:var(--text-muted);">Nenhum contato disponível</div></div></div>`;
     return;
   }
 
   contactsList.innerHTML = contacts.map(c => {
     const isActive = activeChatContactId === c.id;
-    const bg = isActive ? 'background: rgba(34,197,94,0.08); border-left: 3px solid var(--green);' : '';
-    const unreadDot = c.hasUnread ? `<span style="width:8px;height:8px;background:var(--green);border-radius:50%;display:inline-block;margin-left:6px;"></span>` : '';
-    let roleLabel = c.role === 'cliente' ? 'Cliente' : (c.role === 'padrinho' ? 'Padrinho' : 'Afiliado');
-    const lastMsg = allMsgs.filter(m => (m.fromId === c.id || m.toId === c.id)).slice(-1)[0];
-    const lastMsgText = lastMsg ? (lastMsg.audio ? '🎙️ Áudio' : lastMsg.text.substring(0, 30) + (lastMsg.text.length > 30 ? '...' : '')) : 'Sem mensagens';
+    const initial = (c.nome || '?').charAt(0).toUpperCase();
+    const allMsgsLocal = settings.chatMessages || [];
+    const lastMsg = allMsgsLocal.filter(m => (m.fromId === c.id || m.toId === c.id)).slice(-1)[0];
+    const lastMsgText = lastMsg
+      ? (lastMsg.audio ? '🎙️ Áudio' : (lastMsg.text || '').substring(0, 32) + ((lastMsg.text || '').length > 32 ? '...' : ''))
+      : 'Sem mensagens';
+    const unreadBadge = c.hasUnread ? `<span class="wa-contact-badge">!</span>` : '';
+    const roleLabel = c.role === 'cliente' ? 'cliente' : (c.role === 'padrinho' ? 'padrinho' : 'afiliado');
     return `
-      <div class="chat-contact-item" 
-           onclick="selectChatContact('${c.id}')"
-           style="padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); cursor: pointer; transition: background 0.2s; ${bg}">
-        <div style="display:flex; align-items:center; justify-content:space-between;">
-          <div style="font-weight: 600; font-size: 13px; color: var(--text-pri); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;">👤 ${c.nome}${unreadDot}</div>
-          <div style="font-size: 10px; color: var(--text-muted);">${roleLabel}</div>
+      <div class="wa-contact-item${isActive ? ' active' : ''}" onclick="selectChatContact('${c.id}')">
+        <div class="wa-contact-avatar">${initial}</div>
+        <div class="wa-contact-info">
+          <div class="wa-contact-name">👤 ${c.nome}</div>
+          <div class="wa-contact-preview">${lastMsgText}</div>
         </div>
-        <div style="font-size: 11px; color: var(--text-sec); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${lastMsgText}</div>
+        ${unreadBadge}
       </div>`;
   }).join('');
 
   if (activeChatContactId) {
     selectChatContact(activeChatContactId);
   } else if (contacts.length > 0) {
-    // Auto-select first contact
-    selectChatContact(contacts[0].id);
+    // Auto-select first contact only on desktop
+    if (window.innerWidth > 768) selectChatContact(contacts[0].id);
   }
 }
 
@@ -3557,7 +3557,23 @@ function selectChatContact(contactId) {
   if (!contact) contact = {};
   
   const displayRole = contact.role === 'cliente' ? 'Cliente' : (contact.role === 'padrinho' ? 'Padrinho' : 'Afiliado');
-  document.getElementById('chat-header-title').textContent = `💬 Conversa com: ${contact.nome}`;
+  // Update header with WA style
+  const headerEl = document.getElementById('chat-header-title');
+  if (headerEl) {
+    const initial = (contact.nome || '?').charAt(0).toUpperCase();
+    const avatarEl = document.getElementById('adm-chat-avatar');
+    if (avatarEl) avatarEl.textContent = initial;
+    const nameEl = headerEl.querySelector('.wa-header-name');
+    if (nameEl) nameEl.textContent = contact.nome || 'Conversa';
+  }
+
+  // On mobile: show thread, hide contacts
+  if (window.innerWidth <= 768) {
+    const contactsPanel = document.getElementById('wa-contacts-panel');
+    const threadPanel = document.getElementById('wa-thread-panel');
+    if (contactsPanel) contactsPanel.classList.add('hidden-mobile');
+    if (threadPanel) threadPanel.classList.add('active-mobile');
+  }
 
   // Determine the admin's sending ID for this conversation
   // For super admin, the 'from' ID in responses is 'default' (the main padrinho ID)
@@ -3583,18 +3599,21 @@ function selectChatContact(contactId) {
   const container = document.getElementById('chat-messages-container');
   if (container) {
     if (uniqueMessages.length === 0) {
-      container.innerHTML = `<div style="text-align:center; color:var(--text-muted); font-size:13px; margin-top:40px;">💬 Nenhuma mensagem ainda. Diga olá!</div>`;
+      container.innerHTML = `<div class="wa-empty-state"><div style="font-size:40px">💬</div><p>Nenhuma mensagem ainda. Diga olá!</p></div>`;
     } else {
       container.innerHTML = uniqueMessages.map(m => {
         const isMe = m.fromId === adminSendId || m.fromId === user.creditorId;
-        const align = isMe ? 'align-self: flex-end; background: var(--green); color: white;' : 'align-self: flex-start; background: rgba(255,255,255,0.06); color: var(--text-pri);';
-        const contentHtml = m.audio 
-          ? `<audio src="${m.audio}" controls style="max-width: 100%; min-width: 200px; margin-top: 4px; border-radius: 20px; display: block;"></audio>` 
-          : `<div>${m.text}</div>`;
+        const wrapClass = isMe ? 'sent' : 'received';
+        const contentHtml = m.audio
+          ? `<audio src="${m.audio}" controls></audio>`
+          : `<span>${m.text}</span>`;
+        const time = new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const checkmark = isMe ? ' ✓✓' : '';
         return `
-          <div style="max-width: 70%; padding: 10px 14px; border-radius: 12px; font-size: 13px; margin-bottom: 6px; display:flex; flex-direction:column; ${align}">
-            ${contentHtml}
-            <div style="font-size: 9px; text-align: right; margin-top: 4px; opacity: 0.7;">${new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+          <div class="wa-bubble-wrap ${wrapClass}">
+            <div class="wa-bubble">${contentHtml}
+              <div class="wa-bubble-time">${time}${checkmark}</div>
+            </div>
           </div>`;
       }).join('');
       container.scrollTop = container.scrollHeight;
@@ -3650,6 +3669,28 @@ function togglePasswordVisibility(inputId, btn) {
     input.type = 'password';
     btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
   }
+}
+
+// ── Chat helpers ──────────────────────
+function toggleChatSendBtn(prefix) {
+  const inputId = prefix === 'cl' ? 'cl-chat-input-text' : 'chat-input-text';
+  const micId   = prefix === 'cl' ? 'cl-chat-mic-btn'   : 'adm-chat-mic-btn';
+  const sendId  = prefix === 'cl' ? 'cl-chat-send-btn'  : 'adm-chat-send-btn';
+  const input   = document.getElementById(inputId);
+  const mic     = document.getElementById(micId);
+  const send    = document.getElementById(sendId);
+  if (!input || !mic || !send) return;
+  const hasText = input.value.trim().length > 0;
+  // Show send if has text, mic if empty
+  mic.style.display  = hasText ? 'none' : 'flex';
+  send.style.display = hasText ? 'flex' : 'none';
+}
+
+function showContactsPanel() {
+  const contactsPanel = document.getElementById('wa-contacts-panel');
+  const threadPanel   = document.getElementById('wa-thread-panel');
+  if (contactsPanel) contactsPanel.classList.remove('hidden-mobile');
+  if (threadPanel)   threadPanel.classList.remove('active-mobile');
 }
 
 let activeChatContactId = null;
@@ -3715,26 +3756,24 @@ function loadClientChat() {
   if (container) {
     if (uniqueMessages.length === 0) {
       container.innerHTML = `
-        <div style="text-align:center; padding: 30px 20px;">
-          <div style="font-size: 40px; margin-bottom: 12px;">👋</div>
-          <div style="color:var(--text-muted); font-size:13px;">Nenhuma mensagem ainda.</div>
-          <div style="color:var(--text-muted); font-size:12px; margin-top:6px;">Envie um "Olá" para iniciar uma conversa com seu Padrinho!</div>
+        <div class="wa-empty-state">
+          <div style="font-size:48px;">👋</div>
+          <p>Nenhuma mensagem ainda.<br><span style="font-size:12px;">Envie um "Olá" para iniciar a conversa!</span></p>
         </div>`;
     } else {
       container.innerHTML = uniqueMessages.map(m => {
         const isMe = m.fromId === user.id;
-        const align = isMe 
-          ? 'align-self: flex-end; background: var(--green); color: white; border-radius: 12px 12px 2px 12px;' 
-          : 'align-self: flex-start; background: rgba(255,255,255,0.07); color: var(--text-pri); border-radius: 12px 12px 12px 2px;';
-        const contentHtml = m.audio 
-          ? `<audio src="${m.audio}" controls style="max-width: 100%; min-width: 200px; margin-top: 4px; border-radius: 20px; display: block;"></audio>` 
-          : `<div>${m.text}</div>`;
-        const sender = isMe ? 'Você' : padrinhoName;
+        const wrapClass = isMe ? 'sent' : 'received';
+        const contentHtml = m.audio
+          ? `<audio src="${m.audio}" controls></audio>`
+          : `<span>${m.text}</span>`;
+        const time = new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const checkmark = isMe ? ' ✓✓' : '';
         return `
-          <div style="max-width: 72%; padding: 10px 14px; font-size: 13px; margin-bottom: 8px; display:flex; flex-direction:column; ${align}">
-            <div style="font-size:10px; opacity:0.7; margin-bottom:4px; font-weight:600;">${sender}</div>
-            ${contentHtml}
-            <div style="font-size: 9px; text-align: right; margin-top: 4px; opacity: 0.6;">${new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+          <div class="wa-bubble-wrap ${wrapClass}">
+            <div class="wa-bubble">${contentHtml}
+              <div class="wa-bubble-time">${time}${checkmark}</div>
+            </div>
           </div>`;
       }).join('');
       container.scrollTop = container.scrollHeight;
@@ -3809,7 +3848,7 @@ async function toggleAudioRecording() {
       micBtn.innerHTML = '⏹️';
       micBtn.style.borderColor = 'var(--red)';
       micBtn.style.color = 'var(--red)';
-      recordingStatus.style.display = 'flex';
+      recordingStatus.classList.add('active');
       
       clientRecordStartTime = Date.now();
       timerEl.textContent = '00:00';
@@ -3833,7 +3872,7 @@ async function toggleAudioRecording() {
     micBtn.innerHTML = '🎙️';
     micBtn.style.borderColor = '';
     micBtn.style.color = '';
-    recordingStatus.style.display = 'none';
+    recordingStatus.classList.remove('active');
     clearInterval(clientRecordInterval);
   }
 }
@@ -3905,7 +3944,7 @@ async function toggleAdminAudioRecording() {
       micBtn.innerHTML = '⏹️';
       micBtn.style.borderColor = 'var(--red)';
       micBtn.style.color = 'var(--red)';
-      recordingStatus.style.display = 'flex';
+      recordingStatus.classList.add('active');
       
       adminRecordStartTime = Date.now();
       timerEl.textContent = '00:00';
@@ -3929,7 +3968,7 @@ async function toggleAdminAudioRecording() {
     micBtn.innerHTML = '🎙️';
     micBtn.style.borderColor = '';
     micBtn.style.color = '';
-    recordingStatus.style.display = 'none';
+    recordingStatus.classList.remove('active');
     clearInterval(adminRecordInterval);
   }
 }

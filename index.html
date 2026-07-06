@@ -674,31 +674,48 @@
       </section>
 
       <!-- Chat com Padrinho -->
-      <section class="content-section hidden" id="cl-chat">
-        <div class="page-header">
-          <h1>💬 Conversa com Padrinho</h1>
-          <p class="page-sub" id="cl-chat-subtitle">Fale diretamente com seu Padrinho de empréstimo.</p>
-        </div>
-        <div style="display: flex; flex-direction: column; height: 60vh; background: var(--navy); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; max-width: 800px; margin: 0 auto;">
-          <div id="cl-chat-header-title" style="padding: 12px 20px; font-weight: 700; border-bottom: 1px solid var(--border); background: var(--navy-mid); font-size: 14px; display: flex; align-items: center; justify-content: space-between;">
-            <span id="cl-chat-padrinho-name">Carregando Padrinho...</span>
-            <span style="font-size: 11px; color: var(--green); display: flex; align-items: center; gap: 4px;">● Online</span>
-          </div>
-          <div id="cl-chat-messages-container" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: rgba(0,0,0,0.15);">
-            <!-- message bubbles -->
-          </div>
-          
-          <!-- Audio recording status / progress bar -->
-          <div id="cl-chat-recording-status" style="display: none; padding: 8px 20px; background: rgba(239, 68, 68, 0.1); border-top: 1px solid var(--border); font-size: 12px; color: var(--red); align-items: center; justify-content: space-between;">
-            <span style="display: flex; align-items: center; gap: 8px;">🔴 <span class="blink">Gravando áudio...</span></span>
-            <span id="cl-chat-record-timer">00:00</span>
+      <section class="content-section hidden chat-screen" id="cl-chat">
+        <!-- Chat Container (WhatsApp-style) -->
+        <div class="wa-chat-wrap">
+          <!-- Header -->
+          <div class="wa-chat-header" id="cl-chat-header-title">
+            <div class="wa-chat-header-left">
+              <div class="wa-avatar">P</div>
+              <div class="wa-header-info">
+                <div class="wa-header-name" id="cl-chat-padrinho-name">Carregando...</div>
+                <div class="wa-header-status">● online</div>
+              </div>
+            </div>
           </div>
 
-          <div style="padding: 12px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: center; background: var(--navy-mid);">
-            <!-- Audio recording button -->
-            <button id="cl-chat-mic-btn" type="button" class="btn-outline" style="padding: 10px; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; margin-top: 0;" onclick="toggleAudioRecording()">🎙️</button>
-            <input type="text" id="cl-chat-input-text" placeholder="Digite uma mensagem..." style="flex: 1; padding: 12px; border-radius: 20px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); color: var(--text-pri); outline: none; font-size: 14px;" onkeydown="if(event.key === 'Enter') sendClientChatMessage()" />
-            <button class="btn-primary" onclick="sendClientChatMessage()" style="padding: 10px 20px; border-radius: 20px;">Enviar</button>
+          <!-- Messages Area -->
+          <div class="wa-messages" id="cl-chat-messages-container">
+            <!-- message bubbles -->
+          </div>
+
+          <!-- Recording Status Bar -->
+          <div class="wa-recording-bar" id="cl-chat-recording-status">
+            <span class="wa-rec-dot">🔴</span>
+            <span class="blink">Gravando áudio...</span>
+            <span class="wa-rec-timer" id="cl-chat-record-timer">00:00</span>
+          </div>
+
+          <!-- Input Bar -->
+          <div class="wa-input-bar">
+            <button class="wa-mic-btn" id="cl-chat-mic-btn" type="button" onclick="toggleAudioRecording()" title="Gravar áudio">
+              🎙️
+            </button>
+            <input
+              class="wa-text-input"
+              type="text"
+              id="cl-chat-input-text"
+              placeholder="Mensagem..."
+              onkeydown="if(event.key==='Enter') sendClientChatMessage()"
+              oninput="toggleChatSendBtn('cl')"
+            />
+            <button class="wa-send-btn" id="cl-chat-send-btn" type="button" onclick="sendClientChatMessage()" title="Enviar">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
           </div>
         </div>
       </section>
@@ -1233,36 +1250,60 @@
       </section>
 
       <!-- Mensagens / Chat (Padrinho & Afiliado) -->
-      <section class="content-section hidden" id="adm-chat">
-        <div class="page-header">
-          <h1>💬 Mensagens (Chat Interno)</h1>
-          <p class="page-sub">Troca de mensagens diretas entre Padrinho e Afiliados.</p>
-        </div>
-        <div style="display: grid; grid-template-columns: 280px 1fr; gap: 20px; height: 60vh; background: var(--navy); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
-          <!-- Left sidebar (contacts) -->
-          <div style="border-right: 1px solid var(--border); display: flex; flex-direction: column;">
-            <div style="padding: 12px; font-weight: 700; border-bottom: 1px solid var(--border); font-size: 13px;">Conversas</div>
-            <div id="chat-contacts-list" style="flex: 1; overflow-y: auto;">
+      <section class="content-section hidden chat-screen" id="adm-chat">
+        <div class="wa-chat-app">
+          <!-- Contacts sidebar -->
+          <div class="wa-contacts" id="wa-contacts-panel">
+            <div class="wa-contacts-header">💬 Conversas</div>
+            <div class="wa-contacts-list" id="chat-contacts-list">
               <!-- populated dynamically -->
             </div>
           </div>
-          <!-- Right area (messages thread) -->
-          <div style="display: flex; flex-direction: column; background: rgba(0,0,0,0.1)">
-            <div id="chat-header-title" style="padding: 12px; font-weight: 700; border-bottom: 1px solid var(--border); background: var(--navy); font-size: 13px;">
-              Selecione uma conversa para começar
+
+          <!-- Message thread -->
+          <div class="wa-thread" id="wa-thread-panel">
+            <!-- Thread Header -->
+            <div class="wa-chat-header" id="chat-header-title">
+              <div class="wa-chat-header-left">
+                <button class="wa-back-btn" id="wa-back-btn" onclick="showContactsPanel()" title="Voltar">‹</button>
+                <div class="wa-avatar" id="adm-chat-avatar">?</div>
+                <div class="wa-header-info">
+                  <div class="wa-header-name">Selecione uma conversa</div>
+                </div>
+              </div>
             </div>
-            <div id="chat-messages-container" style="flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
-              <!-- message bubbles -->
+
+            <!-- Messages -->
+            <div class="wa-messages" id="chat-messages-container">
+              <div class="wa-empty-state">
+                <div style="font-size:48px;">💬</div>
+                <p>Selecione uma conversa para começar</p>
+              </div>
             </div>
-            <!-- Audio recording status for Admin -->
-            <div id="adm-chat-recording-status" style="display: none; padding: 8px 20px; background: rgba(239, 68, 68, 0.1); border-top: 1px solid var(--border); font-size: 12px; color: var(--red); align-items: center; justify-content: space-between;">
-              <span style="display: flex; align-items: center; gap: 8px;">🔴 <span class="blink">Gravando áudio...</span></span>
-              <span id="adm-chat-record-timer">00:00</span>
+
+            <!-- Recording Status -->
+            <div class="wa-recording-bar" id="adm-chat-recording-status">
+              <span class="wa-rec-dot">🔴</span>
+              <span class="blink">Gravando áudio...</span>
+              <span class="wa-rec-timer" id="adm-chat-record-timer">00:00</span>
             </div>
-            <div style="padding: 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; background: var(--navy); align-items: center;">
-              <button id="adm-chat-mic-btn" type="button" class="btn-outline" style="padding: 10px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; margin-top: 0;" onclick="toggleAdminAudioRecording()">🎙️</button>
-              <input type="text" id="chat-input-text" placeholder="Digite uma mensagem..." style="flex: 1; padding: 10px; border-radius: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); color: var(--text-pri);" onkeydown="if(event.key === 'Enter') sendChatMessage()" />
-              <button class="btn-primary" onclick="sendChatMessage()" style="padding: 10px 20px;">Enviar</button>
+
+            <!-- Input Bar -->
+            <div class="wa-input-bar">
+              <button class="wa-mic-btn" id="adm-chat-mic-btn" type="button" onclick="toggleAdminAudioRecording()" title="Gravar áudio">
+                🎙️
+              </button>
+              <input
+                class="wa-text-input"
+                type="text"
+                id="chat-input-text"
+                placeholder="Mensagem..."
+                onkeydown="if(event.key==='Enter') sendChatMessage()"
+                oninput="toggleChatSendBtn('adm')"
+              />
+              <button class="wa-send-btn" id="adm-chat-send-btn" type="button" onclick="sendChatMessage()" title="Enviar">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+              </button>
             </div>
           </div>
         </div>
