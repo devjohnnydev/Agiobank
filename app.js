@@ -360,6 +360,25 @@ function goTo(screenId) {
   if (el) { el.style.display = 'block'; el.classList.add('active'); }
 }
 
+// ══════════════════════════════════════
+// MOBILE MENU
+// ══════════════════════════════════════
+function openMobileMenu(type) {
+  const sidebarId = type === 'admin' ? 'sidebar-admin' : 'sidebar-client';
+  const sidebar = document.getElementById(sidebarId);
+  const overlay = document.getElementById('mobile-overlay');
+  if (sidebar) sidebar.classList.add('open');
+  if (overlay) overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeMobileMenu() {
+  document.querySelectorAll('.sidebar').forEach(s => s.classList.remove('open'));
+  const overlay = document.getElementById('mobile-overlay');
+  if (overlay) overlay.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
 function switchLoginTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
@@ -794,6 +813,7 @@ function updateClientSidebar(client) {
 }
 
 function clientNav(section) {
+  closeMobileMenu();
   document.querySelectorAll('#screen-client .nav-item').forEach(n => n.classList.remove('active'));
   document.querySelectorAll('#client-main .content-section').forEach(s => s.classList.add('hidden'));
 
@@ -1272,6 +1292,7 @@ function enterAdmin() {
 }
 
 function adminNav(section) {
+  closeMobileMenu();
   document.querySelectorAll('#screen-admin .nav-item').forEach(n => n.classList.remove('active'));
   document.querySelectorAll('#admin-main .content-section').forEach(s => s.classList.add('hidden'));
 

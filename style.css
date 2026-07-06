@@ -1390,48 +1390,182 @@ body {
 /* ══════════════════════════════════════
    RESPONSIVE
 ══════════════════════════════════════ */
+
+/* ── Tablet: 1024px ── */
 @media (max-width: 1024px) {
   .register-container { grid-template-columns: 1fr; }
   .register-hero { display: none; }
   .loan-request-layout { grid-template-columns: 1fr; }
   .sms-layout { grid-template-columns: 1fr; }
   .loan-admin-card { grid-template-columns: 1fr 1fr 1fr; }
-}
-
-@media (max-width: 768px) {
-  .content-section { padding: 20px; }
-  .stats-grid { grid-template-columns: 1fr 1fr; }
   .request-body { grid-template-columns: 1fr 1fr; }
-  .loan-admin-card { grid-template-columns: 1fr 1fr; }
-  .loan-detail-grid { grid-template-columns: 1fr 1fr; }
 }
 
-@media (max-width: 640px) {
-  .sidebar { 
-    display: flex;
+/* ── Small Tablet / Large Phone: 768px ── */
+@media (max-width: 768px) {
+  /* Sidebar: off-canvas */
+  .sidebar {
     position: fixed;
     top: 0;
-    left: -260px;
+    left: -280px;
+    width: 260px;
     height: 100vh;
     z-index: 1000;
     transition: left 0.3s ease;
-    box-shadow: var(--shadow);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+    overflow-y: auto;
   }
   .sidebar.open { left: 0; }
-  .main-content { margin-left: 0; padding-top: 10px; }
-  .stats-grid { grid-template-columns: 1fr; }
-  .form-grid { grid-template-columns: 1fr; }
-  .top-header { padding-left: 20px; }
-  .mobile-menu-btn { display: block; }
-  .mobile-only-header { display: flex !important; }
-  .section-card-header {
-    flex-wrap: wrap;
-    gap: 12px;
+
+  /* Main content takes full width */
+  .main-content {
+    margin-left: 0 !important;
+    padding-top: 0;
+    width: 100%;
   }
+
+  /* Show mobile header */
+  .mobile-only-header {
+    display: flex !important;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--navy-card);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px !important;
+    margin-bottom: 0 !important;
+    backdrop-filter: blur(10px);
+  }
+
+  /* Adjust content padding */
+  .content-section { padding: 16px !important; }
+
+  /* Grids */
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .request-body { grid-template-columns: 1fr 1fr; }
+  .loan-admin-card { grid-template-columns: 1fr; }
+  .loan-detail-grid { grid-template-columns: 1fr 1fr; }
+  .clients-list { grid-template-columns: 1fr; }
+  .settings-grid { grid-template-columns: 1fr; }
+
+  /* Login card */
+  .login-card {
+    padding: 28px 20px;
+    border-radius: var(--radius-md);
+  }
+  .login-bg { padding: 16px; align-items: flex-start; padding-top: 40px; }
+
+  /* Register header */
+  .register-header { padding: 14px 16px; }
+  .register-form-card { padding: 24px 16px; }
+
+  /* Page header */
+  .page-header h1 { font-size: 20px; }
+  .header-actions { flex-wrap: wrap; gap: 8px; }
+  .search-bar input { min-width: 100%; width: 100%; }
+
+  /* Loan request section */
+  #cl-loan-request .loan-info-card { display: none; }
+  #cl-loan-request .request-form { width: 100%; }
+
+  /* Request card footer */
+  .request-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .request-footer .req-actions { flex-direction: column; gap: 8px; }
+  .request-footer .req-actions button { width: 100%; }
+  .request-footer .interest-input { justify-content: space-between; }
+
+  /* Admin cards */
+  .vcto-item {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  /* Toast */
+  .toast-container { bottom: 16px; right: 8px; left: 8px; }
+  .toast { min-width: unset; max-width: 100%; }
+
+  /* Btn row */
+  .btn-row { flex-direction: column; gap: 10px; }
+  .btn-row .btn-outline,
+  .btn-row .btn-primary { width: 100%; margin-top: 0; text-align: center; }
+
+  /* Table horizontal scroll */
+  .installment-table { font-size: 12px; }
+  .section-card { overflow-x: auto; }
 }
 
+/* ── Phone: 480px ── */
+@media (max-width: 480px) {
+  /* Stats: stack single column on tiny screens */
+  .stats-grid { grid-template-columns: 1fr; }
 
+  /* Loan items: stack vertically */
+  .loan-item { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .loan-item-amount { text-align: left; }
+
+  /* Stat cards: smaller */
+  .stat-card { padding: 14px; gap: 12px; }
+  .stat-icon { font-size: 22px; }
+  .stat-value { font-size: 17px; }
+
+  /* Page header: stack */
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  /* Admin loan card: single col */
+  .loan-admin-card { grid-template-columns: 1fr; }
+
+  /* Approve grid: single col */
+  .approve-grid { grid-template-columns: 1fr; }
+  .loan-detail-grid { grid-template-columns: 1fr; }
+
+  /* Client card actions */
+  .client-actions { flex-direction: column; gap: 8px; }
+  .client-actions button { width: 100%; }
+
+  /* Section card header */
+  .section-card-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+
+  /* Admin request body */
+  .request-body { grid-template-columns: 1fr; }
+
+  /* SMS layout */
+  .phone-screen { width: 100%; }
+
+  /* Modal full screen */
+  .modal-overlay { padding: 8px; align-items: flex-end; }
+  .modal-card { border-radius: var(--radius-md) var(--radius-md) 0 0; max-height: 92vh; }
+  .modal-card.large { max-width: 100%; }
+
+  /* Filter tabs: scrollable */
+  .filter-tabs { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .filter-tab { white-space: nowrap; flex-shrink: 0; }
+
+  /* Chat section */
+  #cl-chat > div { height: 70vh; }
+}
+
+/* ── Mobile header display control ── */
+.top-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
 .mobile-only-header { display: none !important; }
+
+@media (max-width: 768px) {
+  .mobile-only-header { display: flex !important; }
+  .mobile-menu-btn { display: flex !important; }
+}
 
 
 /* ══════════════════════════════════════
@@ -1439,24 +1573,61 @@ body {
 ══════════════════════════════════════ */
 .mobile-menu-btn {
   display: none;
+  align-items: center;
+  justify-content: center;
   background: none;
-  border: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   color: var(--text-pri);
-  font-size: 24px;
+  font-size: 20px;
   cursor: pointer;
-  margin-right: 16px;
+  padding: 6px 10px;
+  min-width: 40px;
+  min-height: 40px;
+  transition: var(--transition);
+  -webkit-tap-highlight-color: transparent;
 }
+.mobile-menu-btn:hover { border-color: var(--green); color: var(--green); }
 
 /* Sidebar overlay for mobile */
 .sidebar-overlay {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0,0,0,0.6);
   z-index: 999;
   backdrop-filter: blur(2px);
+  -webkit-tap-highlight-color: transparent;
 }
 .sidebar-overlay.active { display: block; }
+
+/* Small buttons used in mobile header */
+.btn-outline-small {
+  background: transparent;
+  color: var(--text-sec);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+.btn-outline-small:hover { border-color: var(--green); color: var(--green); }
+.btn-primary-small {
+  background: linear-gradient(135deg, var(--green), var(--green-dark));
+  color: #000;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+.btn-primary-small:hover { filter: brightness(1.1); }
 
 .pwa-banner {
   position: fixed;
