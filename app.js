@@ -2509,20 +2509,22 @@ function openLoanDetail(loanId) {
 
       ${loan.parcelas ? `
         <h4 style="margin-top:15px; margin-bottom:12px">Parcelas</h4>
-        <table class="installment-table">
-          <thead><tr><th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Pago em</th><th>Ação</th></tr></thead>
-          <tbody>
-            ${loan.parcelas.map(p => `
-              <tr class="${p.status === 'paid' ? 'paid-row' : ''}">
-                <td>${p.n}ª</td>
-                <td>${formatMoney(p.valor)}</td>
-                <td>${formatDate(p.vcto)}</td>
-                <td><span class="status-badge status-${p.status}">${statusLabel(p.status)}</span></td>
-                <td>${p.paidAt ? formatDate(p.paidAt) : '—'}</td>
-                <td>${p.status !== 'paid' ? `<button class="btn-view" style="font-size:11px;padding:4px 8px" onclick="markParcelaPaid('${loan.id}', ${p.n})">✓ Pago</button>` : '✓'}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>` : `<p style="color:var(--text-sec);font-size:14px;margin-top:15px;">Nenhuma parcela gerada ainda.</p>`}
+        <div style="overflow-x: auto; max-width: 100%; margin-top: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+          <table class="installment-table" style="width: 100%; border-collapse: collapse; min-width: 500px;">
+            <thead><tr><th style="padding: 10px 12px;">Parcela</th><th style="padding: 10px 12px;">Valor</th><th style="padding: 10px 12px;">Vencimento</th><th style="padding: 10px 12px;">Status</th><th style="padding: 10px 12px;">Pago em</th><th style="padding: 10px 12px;">Ação</th></tr></thead>
+            <tbody>
+              ${loan.parcelas.map(p => `
+                <tr class="${p.status === 'paid' ? 'paid-row' : ''}">
+                  <td style="padding: 10px 12px;">${p.n}ª</td>
+                  <td style="padding: 10px 12px;">${formatMoney(p.valor)}</td>
+                  <td style="padding: 10px 12px;">${formatDate(p.vcto)}</td>
+                  <td style="padding: 10px 12px;"><span class="status-badge status-${p.status}">${statusLabel(p.status)}</span></td>
+                  <td style="padding: 10px 12px;">${p.paidAt ? formatDate(p.paidAt) : '—'}</td>
+                  <td style="padding: 10px 12px;">${p.status !== 'paid' ? `<button class="btn-view" style="font-size:11px;padding:4px 8px" onclick="markParcelaPaid('${loan.id}', ${p.n})">✓ Pago</button>` : '✓'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>` : `<p style="color:var(--text-sec);font-size:14px;margin-top:15px;">Nenhuma parcela gerada ainda.</p>`}
     </div>`;
 
   const footerEl = document.getElementById('loan-detail-footer');
