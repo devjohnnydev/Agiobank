@@ -1486,10 +1486,25 @@ body {
 
   /* Login card */
   .login-card {
-    padding: 28px 20px;
-    border-radius: var(--radius-md);
+    width: 100%;
+    max-width: 100%;
+    min-height: 100vh;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--navy);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 40px 24px;
+    margin: 0;
   }
-  .login-bg { padding: 16px; align-items: flex-start; padding-top: 40px; }
+  .login-bg {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+    min-height: 100vh;
+  }
 
   /* Register header */
   .register-header { padding: 14px 16px; }
