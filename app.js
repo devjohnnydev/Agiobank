@@ -3002,17 +3002,12 @@ window.openAdminAddClientModal = function() {
   const saveBtn = document.getElementById('btn-save-client');
   saveBtn.setAttribute('onclick', 'adminAddClient()');
   saveBtn.textContent = 'Salvar Afiliado';
-  const loanSection = document.getElementById('add-client-loan-section');
-  if (loanSection) loanSection.style.display = '';
+
   // Clear fields
   ['add-cli-nome','add-cli-tel','add-cli-cpf','add-cli-resp','add-cli-aval-nome','add-cli-aval-cpf','add-cli-aval-tel','add-cli-aval-renda'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
-  document.getElementById('add-cli-taxa').value = 20;
-  document.getElementById('add-cli-valor').value = '';
-  document.getElementById('add-cli-prazo').value = '';
-  document.getElementById('add-cli-vcto').value = getDefaultDate(30);
   document.getElementById('modal-add-client').classList.remove('hidden');
 };
 
@@ -3021,79 +3016,35 @@ window.adminAddClient = function() {
   const tel = document.getElementById('add-cli-tel').value.trim();
   const cpf = document.getElementById('add-cli-cpf').value.trim();
   const responsavel = document.getElementById('add-cli-resp').value.trim();
-  const valor = parseFloat(document.getElementById('add-cli-valor').value);
-  const taxa = parseFloat(document.getElementById('add-cli-taxa').value);
-  const prazoVal = document.getElementById('add-cli-prazo').value;
-  const prazo = prazoVal ? parseInt(prazoVal) : 0;
-  const tipo = document.getElementById('add-cli-tipo').value;
-  const vcto = document.getElementById('add-cli-vcto').value;
 
-  if (!nome || !tel || !valor || !taxa || !vcto) {
-    toast('Atenção', 'Preencha os campos essenciais do afiliado e empréstimo.', 'warning');
-    return;
-  }
-
-  if (tipo === 'convencional' && !prazo) {
-    toast('Atenção', 'O prazo (meses) é obrigatório para a modalidade de Parcelas Fixas.', 'warning');
+  if (!nome || !tel || !cpf) {
+    toast('Atenção', 'Nome, Telefone e CPF são obrigatórios.', 'warning');
     return;
   }
 
   const userCred = DB.currentUser || {};
-  let client = DB.clients.find(c => (cpf && c.cpf === cpf) || (tel && c.tel === tel));
-  let clientId;
+  let client = DB.clients.find(c => c.cpf === cpf || c.tel === tel);
   const clients = DB.clients;
 
   if (client) {
-    clientId = client.id;
-    // Valida o limite de 2 empréstimos ativos simultâneos
-    const activeCount = DB.loans.filter(l => l.clientId === clientId && ['active', 'ativo', 'overdue', 'inadimplente', 'pending'].includes(l.status)).length;
-    if (activeCount >= 2) {
-      toast('Bloqueado', 'Afiliado já possui 2 empréstimos ativos', 'error');
-      return;
-    }
-    // Atualiza dados adicionais se necessário
-    client.nome = nome || client.nome;
-    client.tel = tel || client.tel;
-    if (responsavel) client.responsavel = responsavel;
-    DB.clients = clients;
-  } else {
-    clientId = 'c' + Date.now();
-    const newClient = {
-      id: clientId,
-      nome, cpf: cpf || '000.000.000-00', tel, responsavel,
-      cidade: 'Não informada', estado: '',
-      cadastro: new Date().toISOString(),
-      creditorId: userCred.creditorId || 'default'
-    };
-    clients.push(newClient);
-    DB.clients = clients;
+    toast('Atenção', 'Afiliado com este CPF ou Telefone já está cadastrado.', 'warning');
+    return;
   }
 
-  const loanId = 'l' + Date.now();
-  const newLoan = {
-    id: loanId, clientId, valor, prazo, juros: taxa,
-    status: 'pending', createdAt: new Date().toISOString(),
-    creditorId: userCred.creditorId || 'default'
+  const clientId = 'c' + Date.now();
+  const newClient = {
+    id: clientId,
+    nome, cpf, tel, responsavel,
+    cidade: 'Não informada', estado: '',
+    cadastro: new Date().toISOString(),
+    creditorId: userCred.creditorId || 'default',
+    score: 600
   };
 
-  const loans = DB.loans;
-  loans.push(newLoan);
-  DB.loans = loans;
+  clients.push(newClient);
+  DB.clients = clients;
 
-  // Extrai informações do avalista, se informadas
-  const avalNome = document.getElementById('add-cli-aval-nome')?.value.trim() || '';
-  const avalCpf = document.getElementById('add-cli-aval-cpf')?.value.trim() || '';
-  const avalTel = document.getElementById('add-cli-aval-tel')?.value.trim() || '';
-  const avalRenda = document.getElementById('add-cli-aval-renda')?.value.trim() || '';
-  let avalista = null;
-  if (avalNome || avalCpf || avalTel || avalRenda) {
-    avalista = { nome: avalNome || '—', cpf: avalCpf || '—', tel: avalTel || '—', renda: avalRenda || '—' };
-  }
-
-  // Usa a função de aprovação com taxa que já calcula as parcelas
-  approveWithRate(loanId, taxa, tipo, vcto, avalista, null, true, false);
-
-  toast('Empréstimo registrado!', 'Empréstimo e afiliado associados com sucesso.', 'success');
+  toast('Afiliado cadastrado!', 'Afiliado cadastrado com sucesso no sistema.', 'success');
   closeModal('modal-add-client');
   
   // Limpar campos adicionais do avalista
