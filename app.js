@@ -1056,7 +1056,7 @@ function loadClientDashboard(clientId) {
       <div class="loan-item">
         <div class="loan-item-info">
           <div class="loan-item-name">Empréstimo #${l.id}</div>
-          <div class="loan-item-meta">Prazo: ${l.prazo} meses · Juros: ${l.juros}%${nextP ? ` · Próx. venc: ${formatDate(nextP.vcto)}` : ''}</div>
+          <div class="loan-item-meta">Prazo: ${l.prazo ? l.prazo + ' meses' : 'Indeterminado'} · Juros: ${l.juros}%${nextP ? ` · Próx. venc: ${formatDate(nextP.vcto)}` : ''}</div>
         </div>
         <div class="loan-item-amount">
           <div class="loan-item-value">${formatMoney(nextP ? nextP.valor : 0)}</div>
@@ -1889,7 +1889,7 @@ function loadPendingRequests() {
         </div>
         <div class="request-body">
           <div class="req-field"><label>Valor Solicitado</label><span class="req-value" style="color:var(--green)">${formatMoney(l.valor)}</span></div>
-          <div class="req-field"><label>Prazo</label><span class="req-value">${l.prazo} ${l.prazo===1?'mês':'meses'}</span></div>
+          <div class="req-field"><label>Prazo</label><span class="req-value">${l.prazo ? (l.prazo===1?'1 mês':l.prazo+' meses') : 'Indeterminado'}</span></div>
           <div class="req-field"><label>Motivo</label><span class="req-value" style="font-size:13px">${l.motivo || '—'}</span></div>
           <div class="req-field"><label>Emprego/Trabalho</label><span class="req-value" style="font-size:13px">${client.emprego || '—'} ${client.trabalho ? '('+client.trabalho+')' : ''}</span></div>
           <div class="req-field"><label>Renda</label><span class="req-value">${client.renda || '—'}</span></div>
@@ -1949,7 +1949,7 @@ function openApproveModal(loanId) {
       <div class="approve-field"><label>Cliente</label><span>${client.nome}</span></div>
       <div class="approve-field"><label>Telefone (SMS)</label><span>${client.tel}</span></div>
       <div class="approve-field"><label>Valor</label><span style="color:var(--green)">${formatMoney(loan.valor)}</span></div>
-      <div class="approve-field"><label>Prazo</label><span>${loan.prazo} ${loan.prazo===1?'mês':'meses'}</span></div>
+      <div class="approve-field"><label>Prazo</label><span>${loan.prazo ? (loan.prazo===1?'1 mês':loan.prazo+' meses') : 'Indeterminado'}</span></div>
       <div class="approve-field"><label>Motivo</label><span>${loan.motivo || '—'}</span></div>
       <div class="approve-field"><label>Emprego/Trabalho</label><span>${client.emprego || '—'} ${client.trabalho ? '('+client.trabalho+')' : ''}</span></div>
       
@@ -1984,7 +1984,7 @@ function openApproveModal(loanId) {
           <div style="flex:1; margin-top: 18px;">
             <span style="font-size:12px;color:var(--text-muted);margin-right:8px" id="modal-taxa-label">% ao período</span>
             <span class="calc-result" id="modal-calc" style="font-weight:600;">
-              Total: <strong>${formatMoney(total)}</strong> · ${loan.prazo}x de <strong>${formatMoney(parcela)}</strong>
+              ${loan.prazo ? `Total: <strong>${formatMoney(total)}</strong> · ${loan.prazo}x de <strong>${formatMoney(parcela)}</strong>` : `Total Inicial: <strong>${formatMoney(total)}</strong> (Indeterminado)`}
             </span>
           </div>
         </div>
@@ -2057,12 +2057,16 @@ function updateModalCalc(valor, prazo) {
     lbl.textContent = '% ao período';
     const total = calcTotal(valor, taxa);
     const parcela = prazo > 0 ? total / prazo : total;
-    document.getElementById('modal-calc').innerHTML = `Total: <strong>${formatMoney(total)}</strong> · ${prazo}x de <strong>${formatMoney(parcela)}</strong>`;
+    document.getElementById('modal-calc').innerHTML = `Total: <strong>${formatMoney(total)}</strong> · ${prazo ? prazo + 'x' : '1x'} de <strong>${formatMoney(parcela)}</strong>`;
   } else {
     lbl.textContent = '% ao mês';
     const jurosMensal = valor * (taxa / 100);
-    const total = (jurosMensal * prazo) + valor;
-    document.getElementById('modal-calc').innerHTML = `Juros: <strong>${formatMoney(jurosMensal)}/mês</strong> · Final: <strong>${formatMoney(valor + jurosMensal)}</strong>`;
+    if (prazo === 0) {
+      document.getElementById('modal-calc').innerHTML = `Juros: <strong>${formatMoney(jurosMensal)}/mês</strong> · Final: <strong>${formatMoney(valor)} (Principal)</strong>`;
+    } else {
+      const total = (jurosMensal * prazo) + valor;
+      document.getElementById('modal-calc').innerHTML = `Juros: <strong>${formatMoney(jurosMensal)}/mês</strong> · Final: <strong>${formatMoney(valor + jurosMensal)}</strong>`;
+    }
   }
 
   // Comissão & Líquido
@@ -2134,10 +2138,13 @@ function approveWithRate(loanId, taxa, tipo = 'convencional', primeiroVcto = nul
 
   const dataBase = primeiroVcto ? new Date(primeiroVcto + 'T12:00:00') : new Date(new Date().getTime() + 30 * 86400000);
 
+  const prazo = l.prazo ? parseInt(l.prazo) : 0;
+
   if (tipo === 'convencional') {
     total = calcTotal(l.valor, taxa);
-    const parcelaVal = parseFloat((total / l.prazo).toFixed(2));
-    for (let i = 1; i <= l.prazo; i++) {
+    const prazoVal = prazo || 1;
+    const parcelaVal = parseFloat((total / prazoVal).toFixed(2));
+    for (let i = 1; i <= prazoVal; i++) {
       const vcto = new Date(dataBase);
       vcto.setMonth(vcto.getMonth() + (i - 1));
       parcelas.push({ n: i, valor: parcelaVal, vcto: vcto.toISOString().split('T')[0], status: 'pending' });
@@ -2145,15 +2152,21 @@ function approveWithRate(loanId, taxa, tipo = 'convencional', primeiroVcto = nul
     parcelaDesc = formatMoney(parcelaVal);
   } else {
     const jurosMensal = parseFloat((l.valor * (taxa / 100)).toFixed(2));
-    total = (jurosMensal * l.prazo) + l.valor;
-    for (let i = 1; i <= l.prazo; i++) {
-      const vcto = new Date(dataBase);
-      vcto.setMonth(vcto.getMonth() + (i - 1));
-      const isLast = i === l.prazo;
-      const val = isLast ? (l.valor + jurosMensal) : jurosMensal;
-      parcelas.push({ n: i, valor: val, vcto: vcto.toISOString().split('T')[0], status: 'pending' });
+    if (prazo === 0) {
+      total = l.valor + jurosMensal;
+      parcelas.push({ n: 1, valor: jurosMensal, vcto: dataBase.toISOString().split('T')[0], status: 'pending' });
+      parcelaDesc = `${formatMoney(jurosMensal)}/mês (Indeterminado)`;
+    } else {
+      total = (jurosMensal * prazo) + l.valor;
+      for (let i = 1; i <= prazo; i++) {
+        const vcto = new Date(dataBase);
+        vcto.setMonth(vcto.getMonth() + (i - 1));
+        const isLast = i === prazo;
+        const val = isLast ? (l.valor + jurosMensal) : jurosMensal;
+        parcelas.push({ n: i, valor: val, vcto: vcto.toISOString().split('T')[0], status: 'pending' });
+      }
+      parcelaDesc = `${formatMoney(jurosMensal)}/mês`;
     }
-    parcelaDesc = `${formatMoney(jurosMensal)}/mês`;
   }
 
   // Comissão calculation
@@ -2204,7 +2217,8 @@ function approveWithRate(loanId, taxa, tipo = 'convencional', primeiroVcto = nul
 
   const client = DB.clients.find(c => c.id === l.clientId);
   if (client) {
-    const msg = `ÁgilBank: Parabéns ${client.nome.split(' ')[0]}! Seu empréstimo de ${formatMoney(l.valor)} foi APROVADO! Taxa: ${taxa}%. Total: ${formatMoney(total)} em ${l.prazo}x. Parcela: ${parcelaDesc}. Dúvidas? (11) 9999-0000`;
+    const prazoTxt = l.prazo ? `${l.prazo} meses` : 'Prazo Indeterminado';
+    const msg = `ÁgilBank: Parabéns ${client.nome.split(' ')[0]}! Seu empréstimo de ${formatMoney(l.valor)} foi APROVADO! Taxa: ${taxa}%. Total Inicial: ${formatMoney(total)} (${prazoTxt}). Parcela: ${parcelaDesc}. Dúvidas? (11) 9999-0000`;
     logSMS(client, msg, 'Aprovação de Empréstimo');
     toast('✅ Aprovado!', `Empréstimo aprovado e SMS enviado para ${client.tel}`, 'success');
   }
@@ -2421,7 +2435,7 @@ function openLoanDetail(loanId) {
       <div class="loan-detail-grid">
         <div class="ld-field"><label>Valor Principal</label><span>${formatMoney(loan.valor)}</span></div>
         <div class="ld-field"><label>Valor Líquido</label><span style="color:var(--green);font-weight:700">${formatMoney(liquidoEntregar)}</span></div>
-        <div class="ld-field"><label>Prazo</label><span>${loan.prazo} meses</span></div>
+        <div class="ld-field"><label>Prazo</label><span>${loan.prazo ? loan.prazo + ' meses' : 'Indeterminado'}</span></div>
         <div class="ld-field"><label>Juros</label><span>${loan.juros != null ? loan.juros + '%' : '—'}</span></div>
         <div class="ld-field"><label>Total c/ Juros</label><span style="color:var(--green)">${loan.totalComJuros ? formatMoney(loan.totalComJuros) : '—'}</span></div>
         <div class="ld-field"><label>Pago</label><span style="color:var(--green)">${formatMoney(pago)}</span></div>
@@ -2454,6 +2468,24 @@ function openLoanDetail(loanId) {
         </table>` : `<p style="color:var(--text-sec);font-size:14px;margin-top:15px;">Nenhuma parcela gerada ainda.</p>`}
     </div>`;
 
+  const footerEl = document.getElementById('loan-detail-footer');
+  if (footerEl) {
+    if (loan.status === 'paid' || loan.status === 'rejected') {
+      footerEl.innerHTML = `<button class="btn-outline" onclick="closeModal('modal-loan-detail')">Fechar</button>`;
+    } else if (!loan.prazo || loan.prazo === 0) {
+      footerEl.innerHTML = `
+        <button class="btn-outline" onclick="closeModal('modal-loan-detail')">Fechar</button>
+        <button class="btn-danger" onclick="liquidateLoan('${loan.id}')">💰 Quitar Total (Principal)</button>
+        <button class="btn-primary" onclick="markAsPaid()">💳 Registrar Pagamento (Juros)</button>
+      `;
+    } else {
+      footerEl.innerHTML = `
+        <button class="btn-outline" onclick="closeModal('modal-loan-detail')">Fechar</button>
+        <button class="btn-primary" onclick="markAsPaid()">💳 Registrar Pagamento</button>
+      `;
+    }
+  }
+
   document.getElementById('modal-loan-detail').classList.remove('hidden');
 }
 
@@ -2468,18 +2500,46 @@ function markParcelaPaid(loanId, parcelaNum) {
   loans[idx].parcelas[pIdx].status = 'paid';
   loans[idx].parcelas[pIdx].paidAt = new Date().toISOString().split('T')[0];
 
-  // Check if all paid
-  const allPaid = loans[idx].parcelas.every(p => p.status === 'paid');
-  if (allPaid) {
-    loans[idx].status = 'paid';
-    const client = DB.clients.find(c => c.id === loans[idx].clientId);
-    if (client) {
-      const msg = `ÁgilBank: 🎉 Parabéns ${client.nome.split(' ')[0]}! Seu empréstimo #${loanId} foi QUITADO com sucesso! Obrigado pela confiança. Conte sempre com a ÁgilBank!`;
-      logSMS(client, msg, 'Quitação de Empréstimo');
+  const loan = loans[idx];
+  const prazo = loan.prazo ? parseInt(loan.prazo) : 0;
+
+  if (prazo === 0) {
+    const nextPending = loan.parcelas.find(p => p.status !== 'paid');
+    if (!nextPending) {
+      const lastParcela = loan.parcelas[loan.parcelas.length - 1];
+      const lastVcto = new Date(lastParcela.vcto + 'T12:00:00');
+      const nextVcto = new Date(lastVcto);
+      nextVcto.setMonth(nextVcto.getMonth() + 1);
+
+      const jurosMensal = parseFloat((loan.valor * (loan.juros / 100)).toFixed(2));
+      const nextN = lastParcela.n + 1;
+
+      loan.parcelas.push({
+        n: nextN,
+        valor: jurosMensal,
+        vcto: nextVcto.toISOString().split('T')[0],
+        status: 'pending'
+      });
+
+      loan.totalComJuros = (loan.totalComJuros || 0) + jurosMensal;
+      toast('✓ Parcela registrada', `Parcela ${parcelaNum} paga. Nova parcela de juros gerada para ${formatDate(nextVcto.toISOString().split('T')[0])}.`, 'success');
+    } else {
+      toast('✓ Parcela registrada', `Parcela ${parcelaNum} marcada como paga.`, 'success');
     }
-    toast('🎉 Empréstimo Quitado!', 'Todas as parcelas foram pagas. SMS de quitação enviado!', 'success');
   } else {
-    toast('✓ Parcela registrada', `Parcela ${parcelaNum} marcada como paga.`, 'success');
+    // Check if all paid
+    const allPaid = loans[idx].parcelas.every(p => p.status === 'paid');
+    if (allPaid) {
+      loans[idx].status = 'paid';
+      const client = DB.clients.find(c => c.id === loans[idx].clientId);
+      if (client) {
+        const msg = `ÁgilBank: 🎉 Parabéns ${client.nome.split(' ')[0]}! Seu empréstimo #${loanId} foi QUITADO com sucesso! Obrigado pela confiança. Conte sempre com a ÁgilBank!`;
+        logSMS(client, msg, 'Quitação de Empréstimo');
+      }
+      toast('🎉 Empréstimo Quitado!', 'Todas as parcelas foram pagas. SMS de quitação enviado!', 'success');
+    } else {
+      toast('✓ Parcela registrada', `Parcela ${parcelaNum} marcada como paga.`, 'success');
+    }
   }
 
   DB.loans = loans;
@@ -2521,6 +2581,33 @@ function markAsPaid() {
   else toast('Atenção', 'Não há parcelas pendentes.', 'warning');
 }
 
+function liquidateLoan(loanId) {
+  if (!confirm('Deseja realmente registrar a quitação total deste empréstimo (pagamento do saldo devedor principal)?')) return;
+  const loans = DB.loans;
+  const idx = loans.findIndex(l => l.id === loanId);
+  if (idx === -1) return;
+
+  loans[idx].parcelas.forEach(p => {
+    if (p.status !== 'paid') {
+      p.status = 'paid';
+      p.paidAt = new Date().toISOString().split('T')[0];
+    }
+  });
+
+  loans[idx].status = 'paid';
+
+  const client = DB.clients.find(c => c.id === loans[idx].clientId);
+  if (client) {
+    const msg = `ÁgilBank: 🎉 Parabéns ${client.nome.split(' ')[0]}! Seu empréstimo #${loanId} foi QUITADO com sucesso! Obrigado pela confiança. Conte sempre com a ÁgilBank!`;
+    logSMS(client, msg, 'Quitação de Empréstimo');
+  }
+
+  DB.loans = loans;
+  toast('🎉 Empréstimo Quitado!', 'O empréstimo foi quitado na totalidade.', 'success');
+  closeModal('modal-loan-detail');
+  loadAdminOverview();
+}
+
 window.filterByStatus = filterByStatus;
 window.filterLoans = filterLoans;
 window.filterClients = filterClients;
@@ -2528,6 +2615,7 @@ window.openLoanDetail = openLoanDetail;
 window.markParcelaPaid = markParcelaPaid;
 window.payCommission = payCommission;
 window.markAsPaid = markAsPaid;
+window.liquidateLoan = liquidateLoan;
 
 
 function loadAllClients() {
@@ -2810,12 +2898,18 @@ window.adminAddClient = function() {
   const responsavel = document.getElementById('add-cli-resp').value.trim();
   const valor = parseFloat(document.getElementById('add-cli-valor').value);
   const taxa = parseFloat(document.getElementById('add-cli-taxa').value);
-  const prazo = parseInt(document.getElementById('add-cli-prazo').value);
+  const prazoVal = document.getElementById('add-cli-prazo').value;
+  const prazo = prazoVal ? parseInt(prazoVal) : 0;
   const tipo = document.getElementById('add-cli-tipo').value;
   const vcto = document.getElementById('add-cli-vcto').value;
 
-  if (!nome || !tel || !valor || !taxa || !prazo || !vcto) {
-    toast('Atenção', 'Preencha os campos essenciais do devedor e empréstimo.', 'warning');
+  if (!nome || !tel || !valor || !taxa || !vcto) {
+    toast('Atenção', 'Preencha os campos essenciais do afiliado e empréstimo.', 'warning');
+    return;
+  }
+
+  if (tipo === 'convencional' && !prazo) {
+    toast('Atenção', 'O prazo (meses) é obrigatório para a modalidade de Parcelas Fixas.', 'warning');
     return;
   }
 
@@ -2857,7 +2951,7 @@ window.adminAddClient = function() {
   // Usa a função de aprovação com taxa que já calcula as parcelas
   approveWithRate(loanId, taxa, tipo, vcto, avalista, null, true, false);
 
-  toast('Devedor Adicionado!', 'Cliente e empréstimo registrados com sucesso.', 'success');
+  toast('Afiliado Adicionado!', 'Afiliado e empréstimo registrados com sucesso.', 'success');
   closeModal('modal-add-client');
   
   // Limpar campos adicionais do avalista

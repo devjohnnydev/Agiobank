@@ -52,7 +52,7 @@
     <div class="login-particles" id="particles"></div>
     <div class="login-card">
       <div class="brand-logo">
-        <div class="rhino-icon">🦏</div>
+        <div class="rhino-icon"><img src="hippo_face.jpg" alt="Logo"></div>
         <div class="brand-text">
           <span class="brand-agil">ágil</span><span class="brand-bank">bank</span>
         </div>
@@ -412,7 +412,7 @@
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar-client">
       <div class="sidebar-brand">
-        <div class="rhino-icon-sm">🦏</div>
+        <div class="rhino-icon-sm"><img src="hippo_face.jpg" alt="Logo"></div>
         <div><span class="brand-agil">ágil</span><span class="brand-bank">bank</span></div>
       </div>
       <nav class="sidebar-nav">
@@ -724,7 +724,7 @@
     <!-- Admin Sidebar -->
     <aside class="sidebar admin-sidebar" id="sidebar-admin">
       <div class="sidebar-brand">
-        <div class="rhino-icon-sm">🦏</div>
+        <div class="rhino-icon-sm"><img src="hippo_face.jpg" alt="Logo"></div>
         <div>
           <div><span class="brand-agil">ágil</span><span class="brand-bank">bank</span></div>
           <small class="admin-badge">ADMIN</small>
@@ -1035,7 +1035,7 @@
       <section class="content-section hidden" id="adm-sms">
         <div class="page-header">
           <h1>📱 Central de SMS</h1>
-          <p class="page-sub">Gerencie os avisos enviados aos devedores</p>
+          <p class="page-sub">Gerencie os avisos enviados aos afiliados</p>
         </div>
         <div class="sms-layout">
           <div class="sms-compose-card">
@@ -1366,6 +1366,50 @@
         </ol>
       </div>
 
+     <!-- ═══════════════════════════════════════════════════════════
+     MODAL NOVO AFILIADO MANUAL
+════════════════════════════════════════════════════════════ -->
+<div id="modal-add-client" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>➕ Novo Afiliado (Manual)</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-client')">✕</button>
+    </div>
+    <div class="modal-body" style="padding: 20px; max-height: 70vh; overflow-y: auto;">
+      <div class="input-group"><label>Nome</label><input type="text" id="add-cli-nome" placeholder="Nome do Afiliado"></div>
+      <div class="input-group"><label>Telefone / WhatsApp</label><input type="text" id="add-cli-tel" placeholder="(11) 99999-9999"></div>
+      <div class="input-group"><label>CPF</label><input type="text" id="add-cli-cpf" placeholder="000.000.000-00"></div>
+      <div class="input-group"><label>Responsável</label><input type="text" id="add-cli-resp" placeholder="Ex: David Tubarão"></div>
+      <hr style="margin:15px 0; border:1px solid var(--border);">
+      <h4 style="margin-bottom:10px;">Empréstimo Inicial</h4>
+      <div class="input-group"><label>Valor (R$)</label><input type="number" id="add-cli-valor" placeholder="Ex: 1000"></div>
+      <div class="input-group"><label>Taxa de Juros (%) ao período</label><input type="number" id="add-cli-taxa" value="20" step="0.5"></div>
+      <div class="input-group">
+        <label>Prazo (meses) <span style="font-size:11px; color:var(--text-sec); font-weight:normal;">(Opcional para Só Juros)</span></label>
+        <input type="number" id="add-cli-prazo" placeholder="Deixe em branco para prazo indeterminado">
+      </div>
+      <div class="input-group">
+        <label>Modalidade</label>
+        <select id="add-cli-tipo">
+          <option value="convencional">Parcelas Fixas (Principal + Juros)</option>
+          <option value="juros_mensais" selected>Só Juros Mensais (Principal no Final)</option>
+        </select>
+      </div>
+      <div class="input-group"><label>1º Vencimento</label><input type="date" id="add-cli-vcto"></div>
+      <hr style="margin:15px 0; border:1px solid var(--border);">
+      <h4 style="margin-bottom:10px;">🛡️ Avalista / Fiador (Opcional)</h4>
+      <div class="input-group"><label>Nome do Avalista</label><input type="text" id="add-cli-aval-nome" placeholder="Nome Completo"></div>
+      <div class="input-group"><label>CPF do Avalista</label><input type="text" id="add-cli-aval-cpf" placeholder="000.000.000-00" maxlength="14" oninput="maskCPF(this)"></div>
+      <div class="input-group"><label>Telefone do Avalista</label><input type="text" id="add-cli-aval-tel" placeholder="(00) 00000-0000" maxlength="15" oninput="maskPhone(this)"></div>
+      <div class="input-group"><label>Renda do Avalista</label><input type="text" id="add-cli-aval-renda" placeholder="R$ 0,00" oninput="maskMoney(this)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('modal-add-client')">Cancelar</button>
+      <button class="btn-primary" onclick="adminAddClient()">Salvar Afiliado</button>
+    </div>
+  </div>
+</div>
+
       <div style="background: var(--navy); padding: 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid rgba(59,130,246,0.3);">
         <h4 style="color: var(--blue); display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
           🤖 No Android (Chrome)
@@ -1394,46 +1438,7 @@
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     MODAL NOVO DEVEDOR MANUAL
-════════════════════════════════════════════════════════════ -->
-<div id="modal-add-client" class="modal-overlay hidden">
-  <div class="modal-card">
-    <div class="modal-header">
-      <h3>➕ Novo Devedor (Manual)</h3>
-      <button class="modal-close" onclick="closeModal('modal-add-client')">✕</button>
-    </div>
-    <div class="modal-body" style="padding: 20px; max-height: 70vh; overflow-y: auto;">
-      <div class="input-group"><label>Nome</label><input type="text" id="add-cli-nome" placeholder="Nome do Devedor"></div>
-      <div class="input-group"><label>Telefone / WhatsApp</label><input type="text" id="add-cli-tel" placeholder="(11) 99999-9999"></div>
-      <div class="input-group"><label>CPF</label><input type="text" id="add-cli-cpf" placeholder="000.000.000-00"></div>
-      <div class="input-group"><label>Responsável</label><input type="text" id="add-cli-resp" placeholder="Ex: David Tubarão"></div>
-      <hr style="margin:15px 0; border:1px solid var(--border);">
-      <h4 style="margin-bottom:10px;">Empréstimo Inicial</h4>
-      <div class="input-group"><label>Valor (R$)</label><input type="number" id="add-cli-valor" placeholder="Ex: 1000"></div>
-      <div class="input-group"><label>Taxa de Juros (%) ao período</label><input type="number" id="add-cli-taxa" value="20" step="0.5"></div>
-      <div class="input-group"><label>Prazo (meses)</label><input type="number" id="add-cli-prazo" value="1"></div>
-      <div class="input-group">
-        <label>Modalidade</label>
-        <select id="add-cli-tipo">
-          <option value="convencional">Parcelas Fixas (Principal + Juros)</option>
-          <option value="juros_mensais" selected>Só Juros Mensais (Principal no Final)</option>
-        </select>
-      </div>
-      <div class="input-group"><label>1º Vencimento</label><input type="date" id="add-cli-vcto"></div>
-      <hr style="margin:15px 0; border:1px solid var(--border);">
-      <h4 style="margin-bottom:10px;">🛡️ Avalista / Fiador (Opcional)</h4>
-      <div class="input-group"><label>Nome do Avalista</label><input type="text" id="add-cli-aval-nome" placeholder="Nome Completo"></div>
-      <div class="input-group"><label>CPF do Avalista</label><input type="text" id="add-cli-aval-cpf" placeholder="000.000.000-00" maxlength="14" oninput="maskCPF(this)"></div>
-      <div class="input-group"><label>Telefone do Avalista</label><input type="text" id="add-cli-aval-tel" placeholder="(00) 00000-0000" maxlength="15" oninput="maskPhone(this)"></div>
-      <div class="input-group"><label>Renda do Avalista</label><input type="text" id="add-cli-aval-renda" placeholder="R$ 0,00" oninput="maskMoney(this)"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-outline" onclick="closeModal('modal-add-client')">Cancelar</button>
-      <button class="btn-primary" onclick="adminAddClient()">Salvar Devedor</button>
-    </div>
-  </div>
-</div>
+
 
 <!-- ═══════════════════════════════════════════════════════════
      MODAL DE DETALHES DO CLIENTE
