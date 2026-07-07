@@ -2811,39 +2811,21 @@ function loadAllClients() {
     const avalName = loanWithAval ? loanWithAval.avalista.nome : '—';
 
     const statusText = hasActiveLoan 
-      ? `<span style="color: var(--green); font-size: 11px; font-weight: bold; margin-left: 6px;">🟢 Ativo</span>` 
-      : `<span style="color: var(--text-muted); font-size: 11px; margin-left: 6px;">⚪ Sem Contrato</span>`;
+      ? `<span style="color: var(--green); font-size: 11px; font-weight: bold; margin-left: 6px;">Ativo</span>` 
+      : `<span style="color: var(--text-muted); font-size: 11px; margin-left: 6px;">Sem Contrato</span>`;
 
     return `
-      <div class="client-card" onclick="openClientDetail('${c.id}')" style="cursor: pointer; border-left: 4px solid ${hasActiveLoan ? 'var(--green)' : 'var(--border)'};">
-        <div class="client-card-header">
+      <div class="client-card" onclick="openClientDetail('${c.id}')" style="cursor: pointer; border-left: 4px solid ${hasActiveLoan ? 'var(--green)' : 'var(--border)'}; display: flex; align-items: center; padding: 15px 20px;">
+        <div class="client-card-header" style="display: flex; align-items: center; gap: 15px; width: 100%;">
           ${avatarHtml}
           <div>
-            <div class="client-name">${c.nome} ${statusText}</div>
-            <div class="client-cpf">${c.cpf}</div>
+            <div class="client-name" style="font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+              <span>${c.nome}</span>
+              <span style="display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 50%; background: ${hasActiveLoan ? 'var(--green)' : 'var(--text-muted)'}; margin-left: 4px;"></span>
+              <span style="color: ${hasActiveLoan ? 'var(--green)' : 'var(--text-muted)'}; font-size: 12px; font-weight: 600;">${hasActiveLoan ? 'Ativo' : 'Sem Contrato'}</span>
+            </div>
+            <div class="client-cpf" style="color: var(--text-muted); font-size: 14px; margin-top: 4px;">${c.cpf}</div>
           </div>
-        </div>
-        <div class="client-stats">
-          <div class="cs-item"><label>Telefone</label><span>${c.tel}</span></div>
-          <div class="cs-item"><label>Cidade</label><span>${c.cidade}/${c.estado}</span></div>
-          <div class="cs-item"><label>Empréstimos</label><span>${clientLoans.length}</span></div>
-          <div class="cs-item"><label>Devendo</label><span class="${totalDevendo > 0 ? overdueL.length ? 'danger' : 'warning' : ''}">${formatMoney(totalDevendo)}</span></div>
-          <div class="cs-item"><label>Emprego</label><span>${c.emprego || '—'}</span></div>
-          <div class="cs-item"><label>Renda</label><span>${c.renda || '—'}</span></div>
-          <div class="cs-item"><label>Afiliado/Credor</label><span>${creditorName}</span></div>
-          <div class="cs-item"><label>Padrinho</label><span>${padrinhoName}</span></div>
-          <div class="cs-item"><label>Score de Crédito</label><span style="font-weight:bold; color:${(c.score || 600) >= 700 ? '#34d399' : (c.score || 600) >= 500 ? '#fbbf24' : '#f87171'}">${c.score !== undefined ? c.score : 600}</span></div>
-          <div class="cs-item" style="grid-column: span 2;"><label>Avalista</label><span>${avalName}</span></div>
-          <div class="cs-item" style="grid-column: span 2;" onclick="event.stopPropagation()">
-            <label>Responsável</label>
-            <span style="cursor:pointer; color:var(--primary); font-weight:bold;" onclick="editResponsavel('${c.id}')">
-              ${c.responsavel ? c.responsavel + ' ✏️' : 'Atribuir Responsável ✏️'}
-            </span>
-          </div>
-        </div>
-        <div class="client-actions" onclick="event.stopPropagation()">
-          <button class="btn-view" onclick="adminNav('loans');filterByStatus('all');document.getElementById('adm-search-loan').value='${c.nome.split(' ')[0]}';filterLoans()">Ver Empréstimos</button>
-          <button class="btn-sms-single" onclick="quickSMSClient('${c.id}')">📱 SMS</button>
         </div>
       </div>`;
   }).join('');
