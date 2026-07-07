@@ -298,6 +298,37 @@ app.post('/api/afiliados', async (req, res) => {
     const existing = await pool.query('SELECT * FROM afiliados WHERE cpf = $1 OR telefone = $2', [cpf, telefone]);
     if (existing.rows.length > 0) {
       const client = existing.rows[0];
+      // Se o afiliado já foi pré-cadastrado pelo padrinho (não possui senha) e está se cadastrando com senha agora
+      if (!client.senha && senha) {
+        const result = await pool.query(`
+          UPDATE afiliados
+          SET nome = $1, telefone = $2, email = $3, senha = $4, metadata = metadata || $5, atualizado_em = NOW()
+          WHERE id = $6
+          RETURNING *
+        `, [nome, telefone || client.telefone, email || client.email || '', senha, JSON.stringify(rest), client.id]);
+        
+        // Se houver indicação, aumentamos o score de quem indicou (+100)
+        if (rest.indicacao) {
+          const cleanInd = rest.indicacao.trim();
+          const indResult = await pool.query(
+            "SELECT id, score FROM afiliados WHERE cpf = $1 OR UPPER(nome) = UPPER($2)",
+            [cleanInd, cleanInd]
+          );
+          if (indResult.rows.length > 0) {
+            const indicator = indResult.rows[0];
+            const newScore = Math.min(1000, (indicator.score || 600) + 100);
+            await pool.query("UPDATE afiliados SET score = $1 WHERE id = $2", [newScore, indicator.id]);
+            console.log(`Score do indicador ${indicator.id} aumentado para ${newScore}`);
+          }
+        }
+
+        const activatedClient = result.rows[0];
+        return res.status(200).json({
+          message: 'Cadastro de afiliado ativado com sucesso',
+          client: { id: activatedClient.id, nome: activatedClient.nome, cpf: activatedClient.cpf, tel: activatedClient.telefone, email: activatedClient.email, senha: activatedClient.senha, score: activatedClient.score, ...(activatedClient.metadata || {}) }
+        });
+      }
+
       return res.status(200).json({ 
         message: 'Afiliado já cadastrado', 
         client: { id: client.id, nome: client.nome, cpf: client.cpf, tel: client.telefone, email: client.email, senha: client.senha, score: client.score, ...(client.metadata || {}) } 

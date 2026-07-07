@@ -723,12 +723,41 @@ function registerClient() {
     toast('Atenção', 'Aceite os termos de uso para continuar.', 'warning'); return;
   }
 
-  const existing = DB.clients.find(c => c.cpf === cpf || c.email === email);
-  if (existing) {
-    toast('Já cadastrado', 'CPF ou e-mail já cadastrado no sistema.', 'error'); return;
-  }
-
+  const clients = DB.clients;
+  const existing = clients.find(c => c.cpf === cpf);
   const creditorId = document.getElementById('reg-creditor-id').value;
+
+  if (existing) {
+    if (!existing.senha) {
+      // Ativação de cadastro prévio feito pelo padrinho!
+      existing.nome = nome || existing.nome;
+      existing.email = email || existing.email;
+      existing.tel = tel || existing.tel;
+      existing.cidade = cidade;
+      existing.estado = estado;
+      existing.endereco = end;
+      existing.nasc = nasc;
+      existing.emprego = emprego;
+      existing.trabalho = trabalho;
+      existing.renda = renda;
+      existing.garantia = garantia;
+      existing.indicacao = indicacao;
+      existing.senha = senha;
+      existing.rg = document.getElementById('reg-rg').value;
+      existing.estadoCivil = document.getElementById('reg-estado-civil').value;
+      existing.cep = document.getElementById('reg-cep').value;
+      if (creditorId) existing.creditorId = creditorId;
+
+      DB.clients = clients; // trigger setter / sync
+      DB.currentUser = { ...existing, role: 'client' };
+      enterClient(existing);
+      toast('Cadastro Ativado!', `Bem-vindo, ${nome.split(' ')[0]}! Seu cadastro pré-existente foi ativado. 🎉`, 'success');
+      return;
+    } else {
+      toast('Já cadastrado', 'CPF ou e-mail já cadastrado no sistema.', 'error');
+      return;
+    }
+  }
 
   const newClient = {
     id: 'c' + Date.now(),
@@ -738,11 +767,12 @@ function registerClient() {
     rg: document.getElementById('reg-rg').value,
     estadoCivil: document.getElementById('reg-estado-civil').value,
     cep: document.getElementById('reg-cep').value,
-    creditorId: creditorId || 'default'
+    creditorId: creditorId || 'default',
+    score: 600
   };
 
-  const clients = DB.clients;
   clients.push(newClient);
+  DB.clients = clients;
   DB.clients = clients;
 
   DB.currentUser = { ...newClient, role: 'client' };
