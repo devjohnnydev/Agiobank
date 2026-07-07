@@ -2654,6 +2654,7 @@ function loadAllClients() {
   const currentCreditor = creditors.find(cr => cr.id === user.creditorId) || {};
   const isPadrinho = currentCreditor.role === 'padrinho';
   const filterType = document.getElementById('padrinho-filter-select')?.value || 'rede';
+  const isSuper = user.creditorId === 'all';
 
   let clients = [];
   if (isSuper) {
