@@ -2301,14 +2301,14 @@ body {
   border-radius: 50%;
   border: 4px solid var(--green);
   box-shadow: 0 0 30px rgba(34, 197, 94, 0.4);
-  animation: hippoRoar 2.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  animation: hippoRoar 4.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 .splash-title {
   font-size: 32px;
   font-weight: 800;
   letter-spacing: 2px;
-  animation: textFadeIn 1.5s ease forwards;
+  animation: textFadeIn 3.0s ease forwards;
   opacity: 0;
 }
 

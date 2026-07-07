@@ -515,7 +515,7 @@ function initLoginUI() {
       setTimeout(() => {
         splash.remove();
       }, 500);
-    }, 2400);
+    }, 4200);
   }
 }
 
