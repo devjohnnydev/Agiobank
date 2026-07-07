@@ -503,6 +503,17 @@ function _recordSuccessfulLogin() {
 document.addEventListener('DOMContentLoaded', () => {
   if (_isLockedOut()) _updateLoginUI();
   else if (_getAttempts() > 0) _updateLoginUI();
+
+  // Dismiss Splash Screen
+  const splash = document.getElementById('splash-screen');
+  if (splash) {
+    setTimeout(() => {
+      splash.classList.add('fade-out');
+      setTimeout(() => {
+        splash.remove();
+      }, 500);
+    }, 2400);
+  }
 });
 
 // ══════════════════════════════════════

@@ -24,6 +24,14 @@
 </head>
 <body>
 
+<!-- Splash Screen Opening Animation -->
+<div id="splash-screen" class="splash-overlay">
+  <div class="splash-content">
+    <img src="hippo_opening.png" alt="ÁgilBank Logo" class="splash-hippo-mouth">
+    <h1 class="splash-title"><span class="brand-agil">ágil</span><span class="brand-bank">bank</span></h1>
+  </div>
+</div>
+
 <!-- ═══════════════════════════════════════════════════════════
      PWA INSTALL BANNER
 ════════════════════════════════════════════════════════════ -->
@@ -93,8 +101,7 @@
 
         <button class="btn-primary full" id="login-submit-btn" onclick="loginUnified()">Entrar</button>
         <div class="divider"><span>ou</span></div>
-        <button class="btn-outline full" onclick="goTo('screen-register')">Criar Conta Grátis</button>
-        <button class="btn-outline full" style="margin-top:8px" onclick="openCreditorRegisterModal()">Criar Conta de Credor (SaaS)</button>
+        <button class="btn-outline full" onclick="openRegisterChoiceModal()">Criar uma Conta</button>
       </div>
     </div>
   </div>
@@ -1488,6 +1495,23 @@
     <div class="modal-footer">
       <button class="btn-outline" onclick="closeModal('modal-add-acerto')">Cancelar</button>
       <button class="btn-primary" onclick="saveAcerto()">Salvar Acerto</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL ESCOLHA DE CADASTRO
+════════════════════════════════════════════════════════════ -->
+<div id="modal-register-choice" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>Selecione o Tipo de Conta</h3>
+      <button class="modal-close" onclick="closeModal('modal-register-choice')">✕</button>
+    </div>
+    <div class="modal-body" style="padding: 20px; text-align: center;">
+      <p style="margin-bottom: 20px; color: var(--text-sec);">Como você deseja utilizar o ÁgilBank?</p>
+      <button class="btn-primary full" onclick="closeModal('modal-register-choice'); goTo('screen-register');" style="margin-bottom: 12px; padding: 14px;">🙋‍♂️ Sou Cliente (Quero Pedir Empréstimo)</button>
+      <button class="btn-outline full" onclick="closeModal('modal-register-choice'); openCreditorRegisterModal();" style="padding: 14px;">💼 Sou Credor / Afiliado (Quero Emprestar)</button>
     </div>
   </div>
 </div>
