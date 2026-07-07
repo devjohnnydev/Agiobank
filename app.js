@@ -273,6 +273,15 @@ function checkOverdueInstallments() {
         if (p.status !== 'overdue') {
           p.status = 'overdue';
           changed = true;
+          
+          // Penalizar o score do afiliado (-150)
+          const clients = DB.clients;
+          const cIdx = clients.findIndex(cl => cl.id === loan.clientId);
+          if (cIdx !== -1) {
+            const currentScore = clients[cIdx].score !== undefined ? clients[cIdx].score : 600;
+            clients[cIdx].score = Math.max(0, currentScore - 150);
+            DB.clients = clients;
+          }
         }
         hasOverdue = true;
       }
@@ -1061,6 +1070,27 @@ function loadClientDashboard(clientId) {
   document.getElementById('cl-total-devendo').textContent = formatMoney(nextInstallmentSum);
   document.getElementById('cl-disponivel').textContent = formatMoney(totalSolicitado);
 
+  // Score de crédito
+  const clientObj = DB.clients.find(c => c.id === clientId) || {};
+  const score = clientObj.score !== undefined ? clientObj.score : 600;
+  const scoreEl = document.getElementById('cl-score');
+  const scoreBar = document.getElementById('cl-score-bar');
+  const scoreRating = document.getElementById('cl-score-rating');
+  if (scoreEl) scoreEl.textContent = score;
+  if (scoreBar) scoreBar.style.width = `${(score / 1000) * 100}%`;
+  if (scoreRating) {
+    if (score >= 700) {
+      scoreRating.textContent = 'Excelente';
+      scoreRating.style.color = '#34d399';
+    } else if (score >= 500) {
+      scoreRating.textContent = 'Médio';
+      scoreRating.style.color = '#fbbf24';
+    } else {
+      scoreRating.textContent = 'Crítico';
+      scoreRating.style.color = '#f87171';
+    }
+  }
+
   // Loans list
   const loansList = document.getElementById('cl-loans-list');
   if (!active.length) {
@@ -1330,6 +1360,13 @@ function loadPhotoFromFile(input) {
 function submitLoanRequest() {
   const user = DB.currentUser;
   if (!user) { toast('Erro', 'Faça login para continuar.', 'error'); return; }
+
+  // Valida o limite de 2 empréstimos ativos simultâneos
+  const activeCount = DB.loans.filter(l => l.clientId === user.id && ['active', 'ativo', 'overdue', 'inadimplente', 'pending'].includes(l.status)).length;
+  if (activeCount >= 2) {
+    toast('Atenção', 'Afiliado já possui 2 empréstimos ativos', 'warning');
+    return;
+  }
 
   const rawValor = document.getElementById('lr-valor').value.replace(/[^0-9]/g, '') / 100;
   const prazo    = parseInt(document.getElementById('lr-prazo').value);
@@ -2747,6 +2784,7 @@ function loadAllClients() {
           <div class="cs-item"><label>Renda</label><span>${c.renda || '—'}</span></div>
           <div class="cs-item"><label>Afiliado/Credor</label><span>${creditorName}</span></div>
           <div class="cs-item"><label>Padrinho</label><span>${padrinhoName}</span></div>
+          <div class="cs-item"><label>Score de Crédito</label><span style="font-weight:bold; color:${(c.score || 600) >= 700 ? '#34d399' : (c.score || 600) >= 500 ? '#fbbf24' : '#f87171'}">${c.score !== undefined ? c.score : 600}</span></div>
           <div class="cs-item" style="grid-column: span 2;"><label>Avalista</label><span>${avalName}</span></div>
           <div class="cs-item" style="grid-column: span 2;" onclick="event.stopPropagation()">
             <label>Responsável</label>
@@ -2862,6 +2900,7 @@ window.openClientDetail = function(clientId) {
             <div><strong>Responsável:</strong> ${c.responsavel || 'Atribua um responsável'}</div>
             <div><strong>Credor/Afiliado:</strong> ${creditorName} (${roleLabel})</div>
             <div><strong>Padrinho:</strong> ${padrinhoName}</div>
+            <div><strong>Score de Crédito:</strong> <span style="font-weight:bold; color:${(c.score || 600) >= 700 ? '#34d399' : (c.score || 600) >= 500 ? '#fbbf24' : '#f87171'}">${c.score !== undefined ? c.score : 600}</span></div>
           </div>
         </div>
       </div>
@@ -2968,18 +3007,35 @@ window.adminAddClient = function() {
   }
 
   const userCred = DB.currentUser || {};
-  const clientId = 'c' + Date.now();
-  const newClient = {
-    id: clientId,
-    nome, cpf: cpf || '000.000.000-00', tel, responsavel,
-    cidade: 'Não informada', estado: '',
-    cadastro: new Date().toISOString(),
-    creditorId: userCred.creditorId || 'default'
-  };
-
+  let client = DB.clients.find(c => (cpf && c.cpf === cpf) || (tel && c.tel === tel));
+  let clientId;
   const clients = DB.clients;
-  clients.push(newClient);
-  DB.clients = clients;
+
+  if (client) {
+    clientId = client.id;
+    // Valida o limite de 2 empréstimos ativos simultâneos
+    const activeCount = DB.loans.filter(l => l.clientId === clientId && ['active', 'ativo', 'overdue', 'inadimplente', 'pending'].includes(l.status)).length;
+    if (activeCount >= 2) {
+      toast('Bloqueado', 'Afiliado já possui 2 empréstimos ativos', 'error');
+      return;
+    }
+    // Atualiza dados adicionais se necessário
+    client.nome = nome || client.nome;
+    client.tel = tel || client.tel;
+    if (responsavel) client.responsavel = responsavel;
+    DB.clients = clients;
+  } else {
+    clientId = 'c' + Date.now();
+    const newClient = {
+      id: clientId,
+      nome, cpf: cpf || '000.000.000-00', tel, responsavel,
+      cidade: 'Não informada', estado: '',
+      cadastro: new Date().toISOString(),
+      creditorId: userCred.creditorId || 'default'
+    };
+    clients.push(newClient);
+    DB.clients = clients;
+  }
 
   const loanId = 'l' + Date.now();
   const newLoan = {
@@ -3005,7 +3061,7 @@ window.adminAddClient = function() {
   // Usa a função de aprovação com taxa que já calcula as parcelas
   approveWithRate(loanId, taxa, tipo, vcto, avalista, null, true, false);
 
-  toast('Afiliado Adicionado!', 'Afiliado e empréstimo registrados com sucesso.', 'success');
+  toast('Empréstimo registrado!', 'Empréstimo e afiliado associados com sucesso.', 'success');
   closeModal('modal-add-client');
   
   // Limpar campos adicionais do avalista
@@ -4621,6 +4677,13 @@ window.saveDirectLoan = function() {
 
   if (!clientId || !creditorId || isNaN(valor) || isNaN(taxa) || isNaN(prazo) || !vcto) {
     toast('Atenção', 'Por favor, preencha todos os campos obrigatórios.', 'warning');
+    return;
+  }
+
+  // Valida o limite de 2 empréstimos ativos simultâneos
+  const activeCount = DB.loans.filter(l => l.clientId === clientId && ['active', 'ativo', 'overdue', 'inadimplente', 'pending'].includes(l.status)).length;
+  if (activeCount >= 2) {
+    toast('Bloqueado', 'Afiliado já possui 2 empréstimos ativos', 'error');
     return;
   }
 
