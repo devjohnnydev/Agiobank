@@ -286,40 +286,12 @@ function checkOverdueInstallments() {
   });
 
   if (changed) {
-    DB.loans = loans;
+  DB.loans = loans;
     console.log('⏰ Parcelas e empréstimos atualizados para atraso.');
   }
 }
 
-// ══════════════════════════════════════
-// IMAGE COMPRESSION (selfie)
-// ══════════════════════════════════════
-function compressImage(dataUrl, maxWidth = 400, quality = 0.7) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      let w = img.width;
-      let h = img.height;
-      if (w > maxWidth) {
-        h = Math.round(h * maxWidth / w);
-        w = maxWidth;
-      }
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL('image/jpeg', quality));
-    };
-    img.onerror = () => resolve(dataUrl); // fallback
-    img.src = dataUrl;
-  });
-}
-
-// ══════════════════════════════════════
-// INIT
-// ══════════════════════════════════════
-document.addEventListener('DOMContentLoaded', async () => {
+async function initAppState() {
   createParticles();
   loadSMSTemplate();
 
@@ -346,7 +318,38 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Check overdue installments every 10 minutes
   setInterval(checkOverdueInstallments, 10 * 60 * 1000);
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAppState);
+} else {
+  initAppState();
+}
+
+// ══════════════════════════════════════
+// IMAGE COMPRESSION (selfie)
+// ══════════════════════════════════════
+function compressImage(dataUrl, maxWidth = 400, quality = 0.7) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width;
+      let h = img.height;
+      if (w > maxWidth) {
+        h = Math.round(h * maxWidth / w);
+        w = maxWidth;
+      }
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl); // fallback
+    img.src = dataUrl;
+  });
+}
 
 // ══════════════════════════════════════
 // NAVIGATION
@@ -500,7 +503,7 @@ function _recordSuccessfulLogin() {
 }
 
 // Initialize UI on page load
-document.addEventListener('DOMContentLoaded', () => {
+function initLoginUI() {
   if (_isLockedOut()) _updateLoginUI();
   else if (_getAttempts() > 0) _updateLoginUI();
 
@@ -514,7 +517,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 500);
     }, 2400);
   }
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initLoginUI);
+} else {
+  initLoginUI();
+}
 
 // ══════════════════════════════════════
 // AUTH — UNIFIED LOGIN
