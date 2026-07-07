@@ -2490,20 +2490,24 @@ function openLoanDetail(loanId) {
 
   const footerEl = document.getElementById('loan-detail-footer');
   if (footerEl) {
-    if (loan.status === 'paid' || loan.status === 'rejected') {
-      footerEl.innerHTML = `<button class="btn-outline" onclick="closeModal('modal-loan-detail')">Fechar</button>`;
-    } else if (!loan.prazo || loan.prazo === 0) {
-      footerEl.innerHTML = `
-        <button class="btn-outline" onclick="closeModal('modal-loan-detail')">Fechar</button>
-        <button class="btn-danger" onclick="liquidateLoan('${loan.id}')">💰 Quitar Total (Principal)</button>
-        <button class="btn-primary" onclick="markAsPaid()">💳 Registrar Pagamento (Juros)</button>
-      `;
-    } else {
-      footerEl.innerHTML = `
-        <button class="btn-outline" onclick="closeModal('modal-loan-detail')">Fechar</button>
-        <button class="btn-primary" onclick="markAsPaid()">💳 Registrar Pagamento</button>
-      `;
+    let mainAction = '';
+    if (loan.status !== 'paid' && loan.status !== 'rejected') {
+      if (!loan.prazo || loan.prazo === 0) {
+        mainAction = `
+          <button class="btn-danger" onclick="liquidateLoan('${loan.id}')">💰 Quitar Total (Principal)</button>
+          <button class="btn-primary" onclick="markAsPaid()">💳 Registrar Pagamento (Juros)</button>
+        `;
+      } else {
+        mainAction = `<button class="btn-primary" onclick="markAsPaid()">💳 Registrar Pagamento</button>`;
+      }
     }
+    
+    footerEl.innerHTML = `
+      <button class="btn-outline" onclick="closeModal('modal-loan-detail')">Fechar</button>
+      ${mainAction}
+      <button class="btn-outline" onclick="editLoan('${loan.id}')">✏️ Editar</button>
+      <button class="btn-danger" style="margin-left: auto;" onclick="deleteLoan('${loan.id}')">🗑️ Excluir</button>
+    `;
   }
 
   document.getElementById('modal-loan-detail').classList.remove('hidden');
@@ -2903,6 +2907,16 @@ window.openClientDetail = function(clientId) {
   `;
 
   document.getElementById('modal-client-detail-content').innerHTML = detailsHtml;
+
+  const footerEl = document.getElementById('modal-client-detail-footer');
+  if (footerEl) {
+    footerEl.innerHTML = `
+      <button class="btn-outline" onclick="closeModal('modal-client-detail')">Fechar</button>
+      <button class="btn-primary" onclick="editClient('${c.id}')">✏️ Editar Afiliado</button>
+      <button class="btn-danger" style="margin-left: auto;" onclick="deleteClient('${c.id}')">🗑️ Excluir Afiliado</button>
+    `;
+  }
+
   document.getElementById('modal-client-detail').classList.remove('hidden');
 };
 
@@ -4681,6 +4695,152 @@ window.saveDirectLoan = function() {
   toast('Sucesso', 'Empréstimo lançado diretamente com sucesso!', 'success');
   
   // Refresh views
+  loadAllLoans();
+  loadAdminOverview();
+};
+
+// ══════════════════════════════════════
+// ADMIN - EDIT & DELETE CONTROLS
+// ══════════════════════════════════════
+
+window.editClient = function(clientId) {
+  const c = DB.clients.find(x => x.id === clientId);
+  if (!c) return;
+
+  closeModal('modal-client-detail');
+
+  document.getElementById('modal-add-client-title').textContent = '✏️ Editar Afiliado';
+  document.getElementById('add-client-loan-section').style.display = 'none';
+
+  document.getElementById('add-cli-nome').value = c.nome;
+  document.getElementById('add-cli-tel').value = c.tel || '';
+  document.getElementById('add-cli-cpf').value = c.cpf || '';
+  document.getElementById('add-cli-resp').value = c.responsavel || '';
+
+  const saveBtn = document.getElementById('btn-save-client');
+  saveBtn.setAttribute('onclick', `saveEditedClient('${clientId}')`);
+  saveBtn.textContent = 'Atualizar Afiliado';
+
+  document.getElementById('modal-add-client').classList.remove('hidden');
+};
+
+window.saveEditedClient = function(clientId) {
+  const nome = document.getElementById('add-cli-nome').value.trim();
+  const tel = document.getElementById('add-cli-tel').value.trim();
+  const cpf = document.getElementById('add-cli-cpf').value.trim();
+  const responsavel = document.getElementById('add-cli-resp').value.trim();
+
+  if (!nome || !tel || !cpf) {
+    toast('Atenção', 'Nome, Telefone e CPF são obrigatórios.', 'warning');
+    return;
+  }
+
+  const clients = DB.clients;
+  const idx = clients.findIndex(c => c.id === clientId);
+  if (idx !== -1) {
+    clients[idx].nome = nome;
+    clients[idx].tel = tel;
+    clients[idx].cpf = cpf;
+    clients[idx].responsavel = responsavel;
+    DB.clients = clients;
+
+    closeModal('modal-add-client');
+    toast('Sucesso', 'Afiliado atualizado com sucesso!', 'success');
+    loadAllClients();
+    loadAdminOverview();
+  }
+};
+
+window.deleteClient = function(clientId) {
+  if (!confirm("Tem certeza que deseja excluir este afiliado/cliente? Todos os empréstimos associados também serão excluídos permanentemente.")) return;
+  
+  const clients = DB.clients;
+  const filteredClients = clients.filter(c => c.id !== clientId);
+  DB.clients = filteredClients;
+  
+  const loans = DB.loans;
+  const filteredLoans = loans.filter(l => l.clientId !== clientId);
+  DB.loans = filteredLoans;
+
+  closeModal('modal-client-detail');
+  toast('Sucesso', 'Cliente e empréstimos excluídos!', 'success');
+  loadAllClients();
+  loadAdminOverview();
+};
+
+window.editLoan = function(loanId) {
+  const loan = DB.loans.find(l => l.id === loanId);
+  if (!loan) return;
+
+  closeModal('modal-loan-detail');
+
+  document.getElementById('edit-loan-id').value = loanId;
+  document.getElementById('edit-loan-valor').value = loan.valor;
+  document.getElementById('edit-loan-taxa').value = loan.juros;
+  document.getElementById('edit-loan-status').value = loan.status;
+
+  document.getElementById('modal-edit-loan').classList.remove('hidden');
+};
+
+window.saveEditedLoan = function() {
+  const id = document.getElementById('edit-loan-id').value;
+  const valor = parseFloat(document.getElementById('edit-loan-valor').value);
+  const taxa = parseFloat(document.getElementById('edit-loan-taxa').value);
+  const status = document.getElementById('edit-loan-status').value;
+
+  if (isNaN(valor) || isNaN(taxa)) {
+    toast('Erro', 'Preencha os valores corretamente.', 'error');
+    return;
+  }
+
+  const loans = DB.loans;
+  const idx = loans.findIndex(l => l.id === id);
+  if (idx !== -1) {
+    const loan = loans[idx];
+    loan.valor = valor;
+    loan.juros = taxa;
+    loan.status = status;
+
+    // Recalculate total with interest
+    const total = calcTotal(valor, taxa);
+    loan.totalComJuros = total;
+
+    if (loan.parcelas && loan.parcelas.length > 0) {
+      if (loan.tipoModalidade === 'convencional') {
+        const valParcela = loan.prazo > 0 ? total / loan.prazo : total;
+        loan.parcelas.forEach(p => {
+          if (p.status !== 'paid') p.valor = valParcela;
+        });
+      } else {
+        // juros_mensais
+        const valJuros = valor * (taxa / 100);
+        loan.parcelas.forEach(p => {
+          if (p.status !== 'paid') {
+            if (loan.prazo > 0 && p.n === loan.prazo) {
+              p.valor = valJuros + valor;
+            } else {
+              p.valor = valJuros;
+            }
+          }
+        });
+      }
+    }
+
+    DB.loans = loans;
+    closeModal('modal-edit-loan');
+    toast('Sucesso', 'Empréstimo editado com sucesso!', 'success');
+    loadAllLoans();
+    loadAdminOverview();
+  }
+};
+
+window.deleteLoan = function(loanId) {
+  if (!confirm("Tem certeza que deseja excluir este empréstimo permanentemente? Esta ação não pode ser desfeita.")) return;
+  const loans = DB.loans;
+  const filtered = loans.filter(l => l.id !== loanId);
+  DB.loans = filtered;
+  closeModal('modal-loan-detail');
+  toast('Sucesso', 'Empréstimo excluído com sucesso!', 'success');
   loadAllLoans();
   loadAdminOverview();
 };

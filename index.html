@@ -1406,7 +1406,7 @@
 <div id="modal-add-client" class="modal-overlay hidden">
   <div class="modal-card">
     <div class="modal-header">
-      <h3>➕ Novo Afiliado (Manual)</h3>
+      <h3 id="modal-add-client-title">➕ Novo Afiliado (Manual)</h3>
       <button class="modal-close" onclick="closeModal('modal-add-client')">✕</button>
     </div>
     <div class="modal-body" style="padding: 20px; max-height: 70vh; overflow-y: auto;">
@@ -1414,22 +1414,24 @@
       <div class="input-group"><label>Telefone / WhatsApp</label><input type="text" id="add-cli-tel" placeholder="(11) 99999-9999"></div>
       <div class="input-group"><label>CPF</label><input type="text" id="add-cli-cpf" placeholder="000.000.000-00"></div>
       <div class="input-group"><label>Responsável</label><input type="text" id="add-cli-resp" placeholder="Ex: David Tubarão"></div>
-      <hr style="margin:15px 0; border:1px solid var(--border);">
-      <h4 style="margin-bottom:10px;">Empréstimo Inicial</h4>
-      <div class="input-group"><label>Valor (R$)</label><input type="number" id="add-cli-valor" placeholder="Ex: 1000"></div>
-      <div class="input-group"><label>Taxa de Juros (%) ao período</label><input type="number" id="add-cli-taxa" value="20" step="0.5"></div>
-      <div class="input-group">
-        <label>Prazo (meses) <span style="font-size:11px; color:var(--text-sec); font-weight:normal;">(Opcional para Só Juros)</span></label>
-        <input type="number" id="add-cli-prazo" placeholder="Deixe em branco para prazo indeterminado">
+      <div id="add-client-loan-section">
+        <hr style="margin:15px 0; border:1px solid var(--border);">
+        <h4 style="margin-bottom:10px;">Empréstimo Inicial</h4>
+        <div class="input-group"><label>Valor (R$)</label><input type="number" id="add-cli-valor" placeholder="Ex: 1000"></div>
+        <div class="input-group"><label>Taxa de Juros (%) ao período</label><input type="number" id="add-cli-taxa" value="20" step="0.5"></div>
+        <div class="input-group">
+          <label>Prazo (meses) <span style="font-size:11px; color:var(--text-sec); font-weight:normal;">(Opcional para Só Juros)</span></label>
+          <input type="number" id="add-cli-prazo" placeholder="Deixe em branco para prazo indeterminado">
+        </div>
+        <div class="input-group">
+          <label>Modalidade</label>
+          <select id="add-cli-tipo">
+            <option value="convencional">Parcelas Fixas (Principal + Juros)</option>
+            <option value="juros_mensais" selected>Só Juros Mensais (Principal no Final)</option>
+          </select>
+        </div>
+        <div class="input-group"><label>1º Vencimento</label><input type="date" id="add-cli-vcto"></div>
       </div>
-      <div class="input-group">
-        <label>Modalidade</label>
-        <select id="add-cli-tipo">
-          <option value="convencional">Parcelas Fixas (Principal + Juros)</option>
-          <option value="juros_mensais" selected>Só Juros Mensais (Principal no Final)</option>
-        </select>
-      </div>
-      <div class="input-group"><label>1º Vencimento</label><input type="date" id="add-cli-vcto"></div>
       <hr style="margin:15px 0; border:1px solid var(--border);">
       <h4 style="margin-bottom:10px;">🛡️ Avalista / Fiador (Opcional)</h4>
       <div class="input-group"><label>Nome do Avalista</label><input type="text" id="add-cli-aval-nome" placeholder="Nome Completo"></div>
@@ -1439,7 +1441,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn-outline" onclick="closeModal('modal-add-client')">Cancelar</button>
-      <button class="btn-primary" onclick="adminAddClient()">Salvar Afiliado</button>
+      <button class="btn-primary" id="btn-save-client" onclick="adminAddClient()">Salvar Afiliado</button>
     </div>
   </div>
 </div>
@@ -1456,8 +1458,45 @@
       <button class="modal-close" onclick="closeModal('modal-client-detail')">✕</button>
     </div>
     <div id="modal-client-detail-content" style="max-height: 75vh; overflow-y: auto; padding: 20px 10px;"></div>
-    <div class="modal-footer">
+    <div class="modal-footer" id="modal-client-detail-footer">
       <button class="btn-outline" onclick="closeModal('modal-client-detail')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL EDITAR EMPRÉSTIMO
+════════════════════════════════════════════════════════════ -->
+<div id="modal-edit-loan" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>✏️ Editar Empréstimo</h3>
+      <button class="modal-close" onclick="closeModal('modal-edit-loan')">✕</button>
+    </div>
+    <div class="modal-body" style="padding: 20px;">
+      <input type="hidden" id="edit-loan-id" />
+      <div class="input-group">
+        <label>Valor Principal (R$)</label>
+        <input type="number" id="edit-loan-valor" />
+      </div>
+      <div class="input-group">
+        <label>Taxa de Juros (%)</label>
+        <input type="number" id="edit-loan-taxa" step="0.5" />
+      </div>
+      <div class="input-group">
+        <label>Status</label>
+        <select id="edit-loan-status">
+          <option value="pending">Pendente</option>
+          <option value="active">Ativo</option>
+          <option value="overdue">Atrasado</option>
+          <option value="paid">Quitado</option>
+          <option value="rejected">Recusado</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('modal-edit-loan')">Cancelar</button>
+      <button class="btn-primary" onclick="saveEditedLoan()">Salvar Alterações</button>
     </div>
   </div>
 </div>
