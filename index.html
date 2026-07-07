@@ -1372,7 +1372,35 @@
         </ol>
       </div>
 
-     <!-- ═══════════════════════════════════════════════════════════
+      <div style="background: var(--navy); padding: 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid rgba(59,130,246,0.3);">
+        <h4 style="color: var(--blue); display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          🤖 No Android (Chrome)
+        </h4>
+        <ol style="margin-left: 20px; font-size: 13px;">
+          <li>Toque no botão <strong>Instalar</strong> que aparece no topo da tela.</li>
+          <li>Se o botão não funcionar ou não aparecer, toque nos <strong>três pontinhos [⋮]</strong> no canto superior direito do Chrome.</li>
+          <li>Selecione a opção <strong>Instalar aplicativo</strong> ou <strong>Adicionar à tela inicial</strong>.</li>
+        </ol>
+      </div>
+
+      <div style="background: var(--navy); padding: 16px; border-radius: 8px; border: 1px solid var(--border);">
+        <h4 style="color: var(--text-pri); display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          💻 No Computador (Chrome)
+        </h4>
+        <ol style="margin-left: 20px; font-size: 13px;">
+          <li>Olhe para a barra de endereços do navegador (onde fica o link).</li>
+          <li>Clique no ícone de <strong>instalar</strong> (um monitor com uma seta para baixo) no canto direito da barra de endereços.</li>
+          <li>Confirme a instalação.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary full" onclick="closeModal('modal-install-guide')">Entendi</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
      MODAL NOVO AFILIADO MANUAL
 ════════════════════════════════════════════════════════════ -->
 <div id="modal-add-client" class="modal-overlay hidden">
@@ -1412,34 +1440,6 @@
     <div class="modal-footer">
       <button class="btn-outline" onclick="closeModal('modal-add-client')">Cancelar</button>
       <button class="btn-primary" onclick="adminAddClient()">Salvar Afiliado</button>
-    </div>
-  </div>
-</div>
-
-      <div style="background: var(--navy); padding: 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid rgba(59,130,246,0.3);">
-        <h4 style="color: var(--blue); display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-          🤖 No Android (Chrome)
-        </h4>
-        <ol style="margin-left: 20px; font-size: 13px;">
-          <li>Toque no botão <strong>Instalar</strong> que aparece no topo da tela.</li>
-          <li>Se o botão não funcionar ou não aparecer, toque nos <strong>três pontinhos [⋮]</strong> no canto superior direito do Chrome.</li>
-          <li>Selecione a opção <strong>Instalar aplicativo</strong> ou <strong>Adicionar à tela inicial</strong>.</li>
-        </ol>
-      </div>
-
-      <div style="background: var(--navy); padding: 16px; border-radius: 8px; border: 1px solid var(--border);">
-        <h4 style="color: var(--text-pri); display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-          💻 No Computador (Chrome)
-        </h4>
-        <ol style="margin-left: 20px; font-size: 13px;">
-          <li>Olhe para a barra de endereços do navegador (onde fica o link).</li>
-          <li>Clique no ícone de <strong>instalar</strong> (um monitor com uma seta para baixo) no canto direito da barra de endereços.</li>
-          <li>Confirme a instalação.</li>
-        </ol>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-primary full" onclick="closeModal('modal-install-guide')">Entendi</button>
     </div>
   </div>
 </div>
