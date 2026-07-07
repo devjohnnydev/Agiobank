@@ -650,7 +650,9 @@ body {
   padding: 10px 16px;
   font-size: 14px;
   outline: none;
-  min-width: 260px;
+  min-width: 0;
+  width: 260px;
+  max-width: 100%;
   transition: var(--transition);
 }
 
@@ -2111,8 +2113,8 @@ body {
 .wa-bubble audio {
   display: block;
   width: 100%;
-  min-width: 200px;
-  max-width: 280px;
+  min-width: 0;
+  max-width: 100%;
   border-radius: 20px;
   margin-top: 4px;
   height: 36px;
