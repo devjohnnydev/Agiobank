@@ -1502,6 +1502,56 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
+     MODAL DE CONFIRMAÇÃO (Genérico)
+════════════════════════════════════════════════════════════ -->
+<div id="modal-confirm" class="modal-overlay hidden">
+  <div class="modal-card" style="max-width: 380px;">
+    <div class="modal-header">
+      <h3 id="modal-confirm-title">⚠️ Confirmar Ação</h3>
+      <button class="modal-close" onclick="closeModal('modal-confirm')">✕</button>
+    </div>
+    <div class="modal-body" style="padding: 20px;">
+      <p id="modal-confirm-message" style="font-size: 14px; color: var(--text-sec); line-height: 1.6;"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('modal-confirm')">Cancelar</button>
+      <button class="btn-danger" id="modal-confirm-ok" onclick="">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL QUITAR ANTECIPADO
+════════════════════════════════════════════════════════════ -->
+<div id="modal-quitar-antecipado" class="modal-overlay hidden">
+  <div class="modal-card" style="max-width: 400px;">
+    <div class="modal-header">
+      <h3>💰 Quitar Antecipado</h3>
+      <button class="modal-close" onclick="closeModal('modal-quitar-antecipado')">✕</button>
+    </div>
+    <div class="modal-body" style="padding: 20px;">
+      <input type="hidden" id="quitar-antecipado-loan-id" />
+      <p style="font-size: 14px; color: var(--text-sec); margin-bottom: 16px; line-height: 1.6;">
+        Dê baixa nas parcelas restantes e marque o empréstimo como <strong style="color: var(--green);">Quitado</strong>. Use quando o cliente pagou antecipado.
+      </p>
+      <div id="quitar-antecipado-info" style="background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.3); border-radius: 8px; padding: 14px; font-size: 13px; display: flex; flex-direction: column; gap: 6px;"></div>
+      <div class="input-group" style="margin-top: 16px;">
+        <label>Valor Recebido (R$) <span style="font-size:11px;color:var(--text-sec);">(pode ser diferente do saldo)</span></label>
+        <input type="number" id="quitar-antecipado-valor" placeholder="Ex: 1000" />
+      </div>
+      <div class="input-group">
+        <label>Observação (opcional)</label>
+        <input type="text" id="quitar-antecipado-obs" placeholder="Ex: Quitado antecipado em 2 de 6 parcelas" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('modal-quitar-antecipado')">Cancelar</button>
+      <button class="btn-primary" onclick="confirmarQuitarAntecipado()">✅ Quitar Empréstimo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
      MODAL NOVO ACERTO DE JUROS (AFILIADOS)
 ════════════════════════════════════════════════════════════ -->
 <div id="modal-add-acerto" class="modal-overlay hidden">

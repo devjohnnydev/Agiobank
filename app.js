@@ -2496,9 +2496,13 @@ function openLoanDetail(loanId) {
         mainAction = `
           <button class="btn-danger" onclick="liquidateLoan('${loan.id}')">💰 Quitar Total (Principal)</button>
           <button class="btn-primary" onclick="markAsPaid()">💳 Registrar Pagamento (Juros)</button>
+          <button class="btn-primary" style="background: var(--teal);" onclick="quitarAntecipado('${loan.id}')">✅ Quitar Antecipado</button>
         `;
       } else {
-        mainAction = `<button class="btn-primary" onclick="markAsPaid()">💳 Registrar Pagamento</button>`;
+        mainAction = `
+          <button class="btn-primary" onclick="markAsPaid()">💳 Registrar Pagamento</button>
+          <button class="btn-primary" style="background: var(--teal);" onclick="quitarAntecipado('${loan.id}')">✅ Quitar Antecipado</button>
+        `;
       }
     }
     
@@ -2921,6 +2925,21 @@ window.openClientDetail = function(clientId) {
 };
 
 window.openAdminAddClientModal = function() {
+  // Reset form to "new" state
+  document.getElementById('modal-add-client-title').textContent = '➕ Novo Afiliado (Manual)';
+  const saveBtn = document.getElementById('btn-save-client');
+  saveBtn.setAttribute('onclick', 'adminAddClient()');
+  saveBtn.textContent = 'Salvar Afiliado';
+  const loanSection = document.getElementById('add-client-loan-section');
+  if (loanSection) loanSection.style.display = '';
+  // Clear fields
+  ['add-cli-nome','add-cli-tel','add-cli-cpf','add-cli-resp','add-cli-aval-nome','add-cli-aval-cpf','add-cli-aval-tel','add-cli-aval-renda'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('add-cli-taxa').value = 20;
+  document.getElementById('add-cli-valor').value = '';
+  document.getElementById('add-cli-prazo').value = '';
   document.getElementById('add-cli-vcto').value = getDefaultDate(30);
   document.getElementById('modal-add-client').classList.remove('hidden');
 };
@@ -4752,20 +4771,20 @@ window.saveEditedClient = function(clientId) {
 };
 
 window.deleteClient = function(clientId) {
-  if (!confirm("Tem certeza que deseja excluir este afiliado/cliente? Todos os empréstimos associados também serão excluídos permanentemente.")) return;
-  
-  const clients = DB.clients;
-  const filteredClients = clients.filter(c => c.id !== clientId);
-  DB.clients = filteredClients;
-  
-  const loans = DB.loans;
-  const filteredLoans = loans.filter(l => l.clientId !== clientId);
-  DB.loans = filteredLoans;
-
-  closeModal('modal-client-detail');
-  toast('Sucesso', 'Cliente e empréstimos excluídos!', 'success');
-  loadAllClients();
-  loadAdminOverview();
+  showConfirm(
+    '🗑️ Excluir Afiliado',
+    'Tem certeza que deseja excluir este afiliado? Todos os empréstimos associados também serão excluídos permanentemente.',
+    function() {
+      const clients = DB.clients;
+      DB.clients = clients.filter(c => c.id !== clientId);
+      const loans = DB.loans;
+      DB.loans = loans.filter(l => l.clientId !== clientId);
+      closeModal('modal-client-detail');
+      toast('Sucesso', 'Cliente e empréstimos excluídos!', 'success');
+      loadAllClients();
+      loadAdminOverview();
+    }
+  );
 };
 
 window.editLoan = function(loanId) {
@@ -4835,14 +4854,100 @@ window.saveEditedLoan = function() {
 };
 
 window.deleteLoan = function(loanId) {
-  if (!confirm("Tem certeza que deseja excluir este empréstimo permanentemente? Esta ação não pode ser desfeita.")) return;
-  const loans = DB.loans;
-  const filtered = loans.filter(l => l.id !== loanId);
-  DB.loans = filtered;
+  showConfirm(
+    '🗑️ Excluir Empréstimo',
+    'Tem certeza que deseja excluir este empréstimo permanentemente? Esta ação não pode ser desfeita.',
+    function() {
+      DB.loans = DB.loans.filter(l => l.id !== loanId);
+      closeModal('modal-loan-detail');
+      toast('Sucesso', 'Empréstimo excluído com sucesso!', 'success');
+      loadAllLoans();
+      loadAdminOverview();
+    }
+  );
+};
+
+// ── Modal de confirmação genérico ──
+window.showConfirm = function(title, message, onConfirm) {
+  document.getElementById('modal-confirm-title').textContent = title;
+  document.getElementById('modal-confirm-message').textContent = message;
+  const okBtn = document.getElementById('modal-confirm-ok');
+  okBtn.onclick = function() {
+    closeModal('modal-confirm');
+    onConfirm();
+  };
+  document.getElementById('modal-confirm').classList.remove('hidden');
+};
+
+// ── Quitar Antecipado ──
+window.quitarAntecipado = function(loanId) {
+  const loan = DB.loans.find(l => l.id === loanId);
+  if (!loan) return;
+  
+  const parcelasAbertas = (loan.parcelas || []).filter(p => p.status !== 'paid');
+  const saldoPendente = parcelasAbertas.reduce((acc, p) => acc + p.valor, 0);
+  const parcelasPagas = (loan.parcelas || []).filter(p => p.status === 'paid').length;
+  const totalParcelas = (loan.parcelas || []).length;
+
   closeModal('modal-loan-detail');
-  toast('Sucesso', 'Empréstimo excluído com sucesso!', 'success');
+
+  document.getElementById('quitar-antecipado-loan-id').value = loanId;
+  document.getElementById('quitar-antecipado-valor').value = saldoPendente.toFixed(2);
+  document.getElementById('quitar-antecipado-obs').value = `Quitado antecipado — ${parcelasPagas} de ${totalParcelas} parcelas pagas`;
+  document.getElementById('quitar-antecipado-info').innerHTML = `
+    <div><strong>Principal:</strong> ${formatMoney(loan.valor)}</div>
+    <div><strong>Parcelas pagas:</strong> ${parcelasPagas} de ${totalParcelas}</div>
+    <div><strong>Saldo devedor (parcelas abertas):</strong> <span style="color: var(--orange); font-weight: 700;">${formatMoney(saldoPendente)}</span></div>
+  `;
+
+  document.getElementById('modal-quitar-antecipado').classList.remove('hidden');
+};
+
+window.confirmarQuitarAntecipado = function() {
+  const loanId = document.getElementById('quitar-antecipado-loan-id').value;
+  const valorRecebido = parseFloat(document.getElementById('quitar-antecipado-valor').value) || 0;
+  const obs = document.getElementById('quitar-antecipado-obs').value;
+
+  const loans = DB.loans;
+  const idx = loans.findIndex(l => l.id === loanId);
+  if (idx === -1) return;
+
+  const loan = loans[idx];
+  const now = new Date().toISOString();
+
+  // Mark all open parcelas as paid
+  if (loan.parcelas) {
+    loan.parcelas.forEach(p => {
+      if (p.status !== 'paid') {
+        p.status = 'paid';
+        p.dataPagamento = now;
+        p.observacao = obs || 'Quitado antecipado';
+      }
+    });
+  }
+
+  loan.status = 'paid';
+  loan.quitadoEm = now;
+  loan.valorQuitadoAntecipado = valorRecebido;
+  loan.obsQuitacao = obs;
+
+  // Register payment in history
+  if (!loan.history) loan.history = [];
+  loan.history.push({
+    tipo: 'quitacao_antecipada',
+    data: now,
+    valor: valorRecebido,
+    obs: obs || 'Quitado antecipado pelo administrador'
+  });
+
+  DB.loans = loans;
+  closeModal('modal-quitar-antecipado');
+  toast('✅ Quitado!', 'Empréstimo marcado como quitado com sucesso!', 'success');
   loadAllLoans();
   loadAdminOverview();
 };
+
+
+
 
 
