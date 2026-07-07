@@ -2766,17 +2766,29 @@ function loadAllClients() {
 
   container.innerHTML = clients.map(c => {
     const clientLoans = loans.filter(l => l.clientId === c.id);
-    const activeL = clientLoans.filter(l => l.status === 'active');
-    const overdueL = clientLoans.filter(l => l.status === 'overdue');
+    const activeL = clientLoans.filter(l => l.status === 'active' || l.status === 'ativo');
+    const overdueL = clientLoans.filter(l => l.status === 'overdue' || l.status === 'inadimplente');
     const totalDevendo = activeL.concat(overdueL).reduce((acc, l) => {
       if (!l.parcelas) return acc;
       return acc + l.parcelas.filter(p => p.status !== 'paid').reduce((a, p) => a + p.valor, 0);
     }, 0);
+
+    const hasActiveLoan = (activeL.length + overdueL.length) > 0;
     const initials = c.nome.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase();
-    const selfieUrl = clientLoans.find(l => l.selfie)?.selfie;
-    const avatarHtml = selfieUrl 
-      ? `<img src="${selfieUrl}" class="client-avatar" style="object-fit: cover; border: none; padding: 0;" />`
-      : `<div class="client-avatar">${initials}</div>`;
+    const selfieUrl = c.selfie || clientLoans.find(l => l.selfie)?.selfie;
+    
+    const statusDot = hasActiveLoan 
+      ? `<span style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--green); border: 2px solid var(--navy-card);"></span>`
+      : `<span style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--text-muted); border: 2px solid var(--navy-card);"></span>`;
+
+    const avatarHtml = `
+      <div style="position: relative; display: inline-block;">
+        ${selfieUrl 
+          ? `<img src="${selfieUrl}" class="client-avatar" style="object-fit: cover; border: none; padding: 0; width: 44px; height: 44px; border-radius: 50%;" />`
+          : `<div class="client-avatar">${initials}</div>`
+        }
+        ${statusDot}
+      </div>`;
 
     // Fetch creditor (afiliado)
     const settings = DB.settings;
@@ -2798,12 +2810,16 @@ function loadAllClients() {
     const loanWithAval = clientLoans.find(l => l.avalista && l.avalista.nome);
     const avalName = loanWithAval ? loanWithAval.avalista.nome : '—';
 
+    const statusText = hasActiveLoan 
+      ? `<span style="color: var(--green); font-size: 11px; font-weight: bold; margin-left: 6px;">🟢 Ativo</span>` 
+      : `<span style="color: var(--text-muted); font-size: 11px; margin-left: 6px;">⚪ Sem Contrato</span>`;
+
     return `
-      <div class="client-card" onclick="openClientDetail('${c.id}')" style="cursor: pointer;">
+      <div class="client-card" onclick="openClientDetail('${c.id}')" style="cursor: pointer; border-left: 4px solid ${hasActiveLoan ? 'var(--green)' : 'var(--border)'};">
         <div class="client-card-header">
           ${avatarHtml}
           <div>
-            <div class="client-name">${c.nome}</div>
+            <div class="client-name">${c.nome} ${statusText}</div>
             <div class="client-cpf">${c.cpf}</div>
           </div>
         </div>
