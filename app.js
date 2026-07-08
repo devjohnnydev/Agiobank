@@ -648,7 +648,7 @@ function openCreditorRegisterModal() {
     const creditors = s.creditors || DEFAULT_SETTINGS.creditors || [];
     const padrinhos = creditors.filter(c => c.role === 'padrinho');
     padrinhoSelect.innerHTML = '<option value="default">Nenhum (ÁgilBank Principal)</option>' + 
-      padrinhos.map(p => '<option value="' + p.id + '">' + p.nome + '</option>').join('');
+      padrinhos.map(p => '<option value="' + p.id + '">' + (p.apelido || p.nome) + '</option>').join('');
   }
 
   document.getElementById('modal-add-creditor').classList.remove('hidden');
@@ -1113,7 +1113,7 @@ function loadClientDashboard(clientId) {
   }
   const padrinhoNameEl = document.getElementById('cl-padrinho-nome');
   if (padrinhoNameEl) {
-    padrinhoNameEl.textContent = padrinho ? padrinho.nome : 'Suporte Principal';
+    padrinhoNameEl.textContent = padrinho ? (padrinho.apelido || padrinho.nome) : 'Suporte Principal';
   }
   const padrinhoPhotoEl = document.getElementById('cl-padrinho-photo');
   if (padrinho && padrinho.foto) {
@@ -3370,6 +3370,7 @@ function loadSettings() {
       const creditor = creditors.find(c => c.id === user.creditorId);
       if (creditor) {
         document.getElementById('cred-profile-nome').value = creditor.nome || '';
+        document.getElementById('cred-profile-apelido').value = creditor.apelido || '';
         document.getElementById('cred-profile-foto').value = creditor.foto || '';
         const preview = document.getElementById('cred-profile-preview');
         if (preview) {
@@ -3378,6 +3379,7 @@ function loadSettings() {
         }
       } else {
         document.getElementById('cred-profile-nome').value = user.nome || 'Super Administrador';
+        document.getElementById('cred-profile-apelido').value = '';
         document.getElementById('cred-profile-foto').value = '';
         const preview = document.getElementById('cred-profile-preview');
         if (preview) preview.style.display = 'none';
@@ -3435,6 +3437,7 @@ window.saveCreditorProfile = function() {
   const idx = creditors.findIndex(c => c.id === user.creditorId);
   if (idx !== -1) {
     creditors[idx].nome = document.getElementById('cred-profile-nome').value.trim();
+    creditors[idx].apelido = document.getElementById('cred-profile-apelido').value.trim();
     creditors[idx].foto = document.getElementById('cred-profile-foto').value;
     s.creditors = creditors;
     DB.settings = s;
@@ -3977,7 +3980,7 @@ function loadChatPanel() {
     return '<div class="wa-contact-item' + (isActive ? ' active' : '') + '" onclick="selectChatContact(\'' + c.id + '\')">' +
       avatarHtml +
       '<div class="wa-contact-info">' +
-        '<div class="wa-contact-name">👤 ' + c.nome + '</div>' +
+        '<div class="wa-contact-name">👤 ' + (c.apelido || c.nome) + '</div>' +
         '<div class="wa-contact-preview">' + lastMsgText + '</div>' +
       '</div>' +
       unreadBadge +
@@ -4200,7 +4203,7 @@ function loadClientChat() {
   // Fallback: default creditor
   if (!padrinho) padrinho = creditors.find(c => c.id === 'default') || { id: 'default', nome: 'Suporte ÁgilBank' };
   
-  const padrinhoName = padrinho.nome || 'Suporte ÁgilBank';
+  const padrinhoName = padrinho.apelido || padrinho.nome || 'Suporte ÁgilBank';
   const padrinhoId = padrinho.id || 'default';
   
   const nameEl = document.getElementById('cl-chat-padrinho-name');
