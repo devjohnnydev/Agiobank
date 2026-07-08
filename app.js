@@ -1557,7 +1557,7 @@ function enterAdmin() {
   goTo('screen-admin');
 
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
 
   // Show logged-in creditor name in sidebar footer
   const userLabel = document.getElementById('admin-user-label');
@@ -1613,6 +1613,7 @@ function adminNav(section) {
     case 'sms':      loadSMSPanel(); break;
     case 'rede':     loadRedePanel(); break;
     case 'chat':     loadChatPanel(); break;
+    case 'settings': loadSettings(); break;
   }
 }
 
@@ -1628,7 +1629,7 @@ function adminNavLoansFilter(filter) {
 
 function updateAdminBadges() {
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
   const loans = isSuper ? DB.loans : DB.loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
 
   const pending = loans.filter(l => l.status === 'pending').length;
@@ -1656,7 +1657,7 @@ function updateAdminBadges() {
 
 function loadAdminOverview() {
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
   const settings = DB.settings;
   
   // Find current creditor info (role, padrinho)
@@ -2002,7 +2003,7 @@ function updateCustomProjection() {
   const targetDateEnd = new Date(dateInput.value + 'T23:59:59');
 
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
   const loans = isSuper ? DB.loans : DB.loans.filter(l => l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default'));
   const activeLoans = loans.filter(l => l.status === 'active');
   const overdueLoans = loans.filter(l => l.status === 'overdue');
@@ -2020,7 +2021,7 @@ function updateCustomProjection() {
 
 function loadPendingRequests() {
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
   
   const pending = DB.loans.filter(l => l.status === 'pending' && (isSuper || l.creditorId === user.creditorId || (!l.creditorId && user.creditorId === 'default')));
   const clients = isSuper ? DB.clients : DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
@@ -2420,7 +2421,7 @@ function rejectWithId(loanId) {
 function loadAllLoans(filter) {
   if (filter) currentLoansFilter = filter;
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
   const settings = DB.settings;
   const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
   const currentCreditor = creditors.find(c => c.id === user.creditorId) || {};
@@ -2793,7 +2794,7 @@ function loadAllClients() {
   const currentCreditor = creditors.find(cr => cr.id === user.creditorId) || {};
   const isPadrinho = currentCreditor.role === 'padrinho';
   const filterType = document.getElementById('padrinho-filter-select')?.value || 'rede';
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
 
   let clients = [];
   if (isSuper) {
@@ -3375,6 +3376,11 @@ function loadSettings() {
           preview.src = creditor.foto || '';
           preview.style.display = creditor.foto ? 'block' : 'none';
         }
+      } else {
+        document.getElementById('cred-profile-nome').value = user.nome || 'Super Administrador';
+        document.getElementById('cred-profile-foto').value = '';
+        const preview = document.getElementById('cred-profile-preview');
+        if (preview) preview.style.display = 'none';
       }
     } else {
       profileCard.style.display = 'none';
@@ -3652,7 +3658,7 @@ function loadRedePanel() {
   const s = DB.settings;
   const creditors = s.creditors || DEFAULT_SETTINGS.creditors || [];
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
   
   const currentCreditor = creditors.find(c => c.id === user.creditorId) || {};
   const isPadrinho = currentCreditor.role === 'padrinho';
@@ -3754,7 +3760,7 @@ function loadRedePanel() {
 
 window.openAddAcertoModal = function() {
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
   const settings = DB.settings;
   const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
   
@@ -3894,7 +3900,7 @@ function linkCreditorToPadrinho(creditorId) {
 // ══════════════════════════════════════
 function loadChatPanel() {
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
   const settings = DB.settings;
   const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
   const currentCreditor = creditors.find(c => c.id === user.creditorId) || {};
@@ -3992,7 +3998,7 @@ function selectChatContact(contactId) {
   const settings = DB.settings;
   const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
 
   // Mark messages as read
   let messages = settings.chatMessages || [];
@@ -4091,7 +4097,7 @@ function selectChatContact(contactId) {
 
 function sendChatMessage() {
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
   if (!activeChatContactId) {
     toast('Atenção', 'Selecione um contato primeiro.', 'warning');
     return;
@@ -4453,7 +4459,7 @@ async function toggleAdminAudioRecording() {
 
 function saveAdminAudioMessage(base64Audio) {
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
   const settings = DB.settings;
   const messages = settings.chatMessages || [];
 
@@ -4518,7 +4524,7 @@ window.renderCalendar = function() {
   const today = new Date();
   const loans = DB.loans;
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
   const filterType = document.getElementById('padrinho-filter-select')?.value || 'rede';
 
   // Get filtered loans for the active view to display indicators
@@ -4624,7 +4630,7 @@ window.selectCalendarDay = function(dateString) {
   if (detailTitle) detailTitle.innerHTML = `Cobranças do dia: <strong>${formattedDate}</strong>`;
   
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
   const filterType = document.getElementById('padrinho-filter-select')?.value || 'rede';
   const settings = DB.settings;
   const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
@@ -4743,7 +4749,7 @@ window.clearSystemData = async function() {
 // ══════════════════════════════════════
 window.openAddDirectLoanModal = function() {
   const user = DB.currentUser || {};
-  const isSuper = user.creditorId === 'all';
+  const isSuper = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
   const settings = DB.settings;
   const creditors = settings.creditors || DEFAULT_SETTINGS.creditors || [];
   const currentCreditor = creditors.find(c => c.id === user.creditorId) || {};
