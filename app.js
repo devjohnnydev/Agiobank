@@ -1136,7 +1136,7 @@ function loadClientDashboard(clientId) {
       <div class="loan-item">
         <div class="loan-item-info">
           <div class="loan-item-name">Empréstimo #${l.id}</div>
-          <div class="loan-item-meta">Prazo: ${l.prazo ? l.prazo + ' meses' : 'Indeterminado'} · Juros: ${l.juros}%${nextP ? ` · Próx. venc: ${formatDate(nextP.vcto)}` : ''}</div>
+          <div class="loan-item-meta">Prazo: ${l.prazo ? l.prazo + ' meses' : 'Indeterminado'} · Juros: ${l.juros}% (${l.frequencia || 'mensal'})${nextP ? ` · Próx. venc: ${formatDate(nextP.vcto)}` : ''}</div>
         </div>
         <div class="loan-item-amount">
           <div class="loan-item-value">${formatMoney(nextP ? nextP.valor : 0)}</div>
@@ -1385,6 +1385,18 @@ function loadPhotoFromFile(input) {
     toast('Foto carregada!', 'Foto da galeria selecionada com sucesso.', 'success');
   };
   reader.readAsDataURL(file);
+}
+
+function getNextFrequencyDate(baseDate, index, frequency) {
+  const targetDate = new Date(baseDate);
+  if (frequency === 'diario') {
+    targetDate.setDate(targetDate.getDate() + index);
+  } else if (frequency === 'semanal') {
+    targetDate.setDate(targetDate.getDate() + (index * 7));
+  } else { // mensal
+    return getInstallmentDate(baseDate, index);
+  }
+  return targetDate;
 }
 
 function getInstallmentDate(firstVctoDate, monthsToAdd) {
@@ -2530,6 +2542,7 @@ function openLoanDetail(loanId) {
         <div class="ld-field"><label>Valor Líquido</label><span style="color:var(--green);font-weight:700">${formatMoney(liquidoEntregar)}</span></div>
         <div class="ld-field"><label>Prazo</label><span>${loan.prazo ? loan.prazo + ' meses' : 'Indeterminado'}</span></div>
         <div class="ld-field"><label>Juros</label><span>${loan.juros != null ? loan.juros + '%' : '—'}</span></div>
+        <div class="ld-field"><label>Frequência</label><span style="text-transform: capitalize;">${loan.frequencia || 'mensal'}</span></div>
         <div class="ld-field"><label>Total c/ Juros</label><span style="color:var(--green)">${loan.totalComJuros ? formatMoney(loan.totalComJuros) : '—'}</span></div>
         <div class="ld-field"><label>Pago</label><span style="color:var(--green)">${formatMoney(pago)}</span></div>
         <div class="ld-field"><label>Saldo Devedor</label><span style="color:var(--orange)">${formatMoney((loan.totalComJuros || 0) - pago)}</span></div>
@@ -2612,7 +2625,7 @@ function markParcelaPaid(loanId, parcelaNum) {
       const firstParcela = loan.parcelas.find(p => p.n === 1);
       const firstVcto = new Date(firstParcela.vcto + 'T12:00:00');
       const nextN = loan.parcelas.length + 1;
-      const nextVcto = getInstallmentDate(firstVcto, nextN - 1);
+      const nextVcto = getNextFrequencyDate(firstVcto, nextN - 1, loan.frequencia || 'mensal');
 
       const jurosMensal = parseFloat((loan.valor * (loan.juros / 100)).toFixed(2));
 
@@ -4654,6 +4667,7 @@ window.saveDirectLoan = function() {
   const taxa = parseFloat(document.getElementById('dl-taxa').value);
   const prazo = 0;
   const tipo = document.getElementById('dl-tipo').value;
+  const frequencia = document.getElementById('dl-frequencia').value;
   const vcto = document.getElementById('dl-vcto').value;
   const garantia = document.getElementById('dl-garantia').value.trim();
 
@@ -4678,7 +4692,7 @@ window.saveDirectLoan = function() {
     const prazoValNum = prazo || 1;
     const parcelaVal = parseFloat((total / prazoValNum).toFixed(2));
     for (let i = 1; i <= prazoValNum; i++) {
-      const pVcto = getInstallmentDate(dataBase, i - 1);
+      const pVcto = getNextFrequencyDate(dataBase, i - 1, frequencia);
       parcelas.push({ n: i, valor: parcelaVal, vcto: pVcto.toISOString().split('T')[0], status: 'pending' });
     }
   } else {
@@ -4689,7 +4703,7 @@ window.saveDirectLoan = function() {
     } else {
       total = (jurosMensal * prazo) + valor;
       for (let i = 1; i <= prazo; i++) {
-        const pVcto = getInstallmentDate(dataBase, i - 1);
+        const pVcto = getNextFrequencyDate(dataBase, i - 1, frequencia);
         const isLast = i === prazo;
         const val = isLast ? (valor + jurosMensal) : jurosMensal;
         parcelas.push({ n: i, valor: val, vcto: pVcto.toISOString().split('T')[0], status: 'pending' });
@@ -4734,6 +4748,7 @@ window.saveDirectLoan = function() {
     clientId,
     valor,
     prazo,
+    frequencia,
     diaVencimento: dataBase.getDate(),
     motivo: 'Direto / Administrativo',
     descricao: 'Lançado diretamente no painel administrativo',
@@ -4887,6 +4902,7 @@ window.editLoan = function(loanId) {
   
   const pendingP = loan.parcelas ? loan.parcelas.find(p => p.status !== 'paid') : null;
   document.getElementById('edit-loan-vcto').value = pendingP ? pendingP.vcto : new Date().toISOString().split('T')[0];
+  document.getElementById('edit-loan-frequencia').value = loan.frequencia || 'mensal';
   
   document.getElementById('edit-loan-status').value = loan.status;
 
@@ -4898,6 +4914,7 @@ window.saveEditedLoan = function() {
   const valor = parseFloat(document.getElementById('edit-loan-valor').value);
   const taxa = parseFloat(document.getElementById('edit-loan-taxa').value);
   const vcto = document.getElementById('edit-loan-vcto').value;
+  const frequencia = document.getElementById('edit-loan-frequencia').value;
   const status = document.getElementById('edit-loan-status').value;
 
   const baseDate = new Date(vcto + 'T12:00:00');
@@ -4914,6 +4931,7 @@ window.saveEditedLoan = function() {
     loan.valor = valor;
     loan.juros = taxa;
     loan.diaVencimento = baseDate.getDate();
+    loan.frequencia = frequencia;
     loan.status = status;
 
     // Recalculate total with interest
@@ -4927,7 +4945,7 @@ window.saveEditedLoan = function() {
         const valParcela = loan.prazo > 0 ? total / loan.prazo : total;
         pendingParcelas.forEach((p, idx) => {
           p.valor = valParcela;
-          const targetVcto = getInstallmentDate(baseDate, idx);
+          const targetVcto = getNextFrequencyDate(baseDate, idx, frequencia);
           p.vcto = targetVcto.toISOString().split('T')[0];
         });
       } else {
@@ -4939,7 +4957,7 @@ window.saveEditedLoan = function() {
           } else {
             p.valor = valJuros;
           }
-          const targetVcto = getInstallmentDate(baseDate, idx);
+          const targetVcto = getNextFrequencyDate(baseDate, idx, frequencia);
           p.vcto = targetVcto.toISOString().split('T')[0];
         });
       }

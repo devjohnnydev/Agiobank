@@ -436,14 +436,26 @@ app.get('/api/afiliados/:id/emprestimos', async (req, res) => {
       // Se for menor que 1 mês, consideramos 1 mês para a taxa mensal mínima aplicável.
       const start = new Date(loan.data_inicio);
       const end = loan.data_quitacao ? new Date(loan.data_quitacao) : new Date();
-      let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-      if (months < 1) {
-        months = 1;
+
+      const freq = (loan.metadata && loan.metadata.frequencia) || 'mensal';
+      let periods = 1;
+
+      if (freq === 'diario') {
+        const diffTime = Math.abs(end - start);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        periods = diffDays < 1 ? 1 : diffDays;
+      } else if (freq === 'semanal') {
+        const diffTime = Math.abs(end - start);
+        const diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
+        periods = diffWeeks < 1 ? 1 : diffWeeks;
+      } else { // mensal
+        let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+        periods = months < 1 ? 1 : months;
       }
 
       const principal = parseFloat(loan.valor_principal);
-      const jurosMensalRate = parseFloat(loan.taxa_juros) / 100;
-      const jurosAcumulados = principal * jurosMensalRate * months;
+      const jurosRate = parseFloat(loan.taxa_juros) / 100;
+      const jurosAcumulados = principal * jurosRate * periods;
 
       let saldoDevedor = principal + jurosAcumulados - totalPago;
       if (saldoDevedor < 0) saldoDevedor = 0;
