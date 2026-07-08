@@ -3710,9 +3710,11 @@ function loadRedePanel() {
           <td>${c.email}</td>
           <td>${roleLabel}</td>
           <td>${linkedPadrinho}</td>
-          <td style="display:flex; gap:12px; align-items:center;">
-            ${roleActions}
-            ${linkAction}
+          <td>
+            <div style="display:flex; flex-direction:column; gap:8px; align-items:stretch;">
+              ${roleActions}
+              ${linkAction}
+            </div>
           </td>
         </tr>`;
     }).join('');
@@ -3864,6 +3866,12 @@ window.deleteAcerto = function(acertoId) {
 };
 
 function changeCreditorRole(creditorId, newRole) {
+  const user = DB.currentUser || {};
+  const isMasterAdmin = user.creditorId === 'all' || user.creditorId === 'default' || user.creditorId === 'cred_johnny';
+  if (!isMasterAdmin) {
+    toast('Acesso negado', 'Somente o Padrinho Principal (Admin Master) pode alterar cargos.', 'error');
+    return;
+  }
   const s = DB.settings;
   const creditors = s.creditors || [];
   const idx = creditors.findIndex(c => c.id === creditorId);
