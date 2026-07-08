@@ -4722,8 +4722,11 @@ window.clearSystemData = async function() {
   DB.loans = [];
   DB.smsHistory = [];
   
-  // Reset settings but keep DEFAULT_SETTINGS (including the default creditor)
-  DB.settings = { ...DEFAULT_SETTINGS };
+  // Reset settings but keep DEFAULT_SETTINGS (preserving all current creditors/padrinhos and their photos)
+  const currentCreditors = DB.settings.creditors || [];
+  const newSettings = { ...DEFAULT_SETTINGS };
+  newSettings.creditors = currentCreditors;
+  DB.settings = newSettings;
 
   // Explicitly trigger sync to server with empty state
   try {
@@ -4731,7 +4734,7 @@ window.clearSystemData = async function() {
       clients: [],
       loans: [],
       smsHistory: [],
-      settings: DEFAULT_SETTINGS
+      settings: newSettings
     };
     
     // Attempt database sync if server API is reachable
