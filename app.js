@@ -240,7 +240,7 @@ const DEFAULT_SETTINGS = {
   chatMessages: [],
   creditors: [
     { id: 'default', nome: 'ÁgilBank Principal', email: 'agiotabraga@gmail.com', password: 'Ab@46431194', role: 'padrinho' },
-    { id: 'cred_johnny', nome: 'Credor Principal (ÁgilBank Principal)', email: 'johnnybraga2@gmail.com', password: 'Jb@46431194', role: 'padrinho' }
+    { id: 'cred_johnny', nome: 'Padrinho Principal (ÁgilBank Principal)', email: 'johnnybraga2@gmail.com', password: 'Jb@46431194', role: 'padrinho' }
   ]
 };
 

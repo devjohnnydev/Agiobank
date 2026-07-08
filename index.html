@@ -169,7 +169,7 @@
               </select>
             </div>
             <div class="input-group">
-              <label>Credor / Emprestador *</label>
+              <label>Padrinho / Emprestador *</label>
               <select id="reg-creditor-id">
                 <option value="default">ÁgilBank Principal (agiotabraga@gmail.com)</option>
               </select>
@@ -762,7 +762,7 @@
           <span class="nav-icon">📱</span> Central SMS
         </a>
         <a class="nav-item" onclick="adminNav('rede')" id="anav-rede" style="display: none;">
-          <span class="nav-icon">🌐</span> Rede de Credores
+          <span class="nav-icon">🌐</span> Rede de Padrinhos
         </a>
         <a class="nav-item" onclick="adminNav('chat')" id="anav-chat">
           <span class="nav-icon">💬</span> Mensagens (Chat)
@@ -1033,7 +1033,7 @@
       <!-- Clientes -->
       <section class="content-section hidden" id="adm-clients">
         <div class="page-header" style="display:flex; justify-content:space-between; align-items:center;">
-          <h1>👥 Gestão de Clientes</h1>
+          <h1>👥 Gestão de Afiliados</h1>
           <div style="display:flex; gap:10px; align-items:center;">
             <button class="btn-primary" onclick="openAdminAddClientModal()" style="height:44px; white-space:nowrap;">+ Adicionar</button>
             <div class="search-bar" style="margin:0;">
@@ -1056,14 +1056,14 @@
             <div class="input-group">
               <label>Destinatário</label>
               <select id="sms-dest" onchange="updateSMSPreview()">
-                <option value="all">📢 Todos os clientes com dívida</option>
+                <option value="all">📢 Todos os afiliados com dívida</option>
                 <option value="overdue">⚠️ Apenas atrasados</option>
                 <option value="due-soon">⏰ Vence nos próximos 3 dias</option>
-                <option value="specific">👤 Cliente específico</option>
+                <option value="specific">👤 Afiliado específico</option>
               </select>
             </div>
             <div class="input-group" id="sms-client-select-group" style="display:none">
-              <label>Selecionar Cliente</label>
+              <label>Selecionar Afiliado</label>
               <select id="sms-client-select"></select>
             </div>
             <div class="input-group">
@@ -1145,7 +1145,7 @@
               <input type="number" id="limite-max" min="0" value="5000" />
             </div>
             <div class="input-group">
-              <label>Máximo por Cliente Ativo (R$)</label>
+              <label>Máximo por Afiliado Ativo (R$)</label>
               <input type="number" id="limite-cliente" min="0" value="10000" />
             </div>
             <button class="btn-primary full" onclick="saveLimites()">Salvar Limites</button>
@@ -1197,7 +1197,7 @@
           </div>
 
           <div class="settings-card" id="creditor-profile-card" style="display: none;">
-            <h3>👤 Perfil de Credor / Padrinho</h3>
+            <h3>👤 Perfil do Padrinho</h3>
             <div class="input-group">
               <label>Nome de Cadastro (Painel Admin)</label>
               <input type="text" id="cred-profile-nome" />
@@ -1226,7 +1226,7 @@
       <section class="content-section hidden" id="adm-rede">
         <div class="page-header">
           <div>
-            <h1>👥 Rede de Credores & Acertos</h1>
+            <h1>👥 Rede de Padrinhos & Acertos</h1>
             <p class="page-sub">Controle de credores, afiliados, apadrinhamentos e acertos de juros.</p>
           </div>
           <div>
@@ -1235,12 +1235,12 @@
         </div>
 
         <div class="section-card" id="rede-creditors-section">
-          <h3>Listagem de Credores no Sistema</h3>
+          <h3>Listagem de Padrinhos no Sistema</h3>
           <div style="overflow-x: auto; max-width: 100%; margin-top: 15px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
             <table class="installment-table" style="width: 100%; min-width: 600px;">
               <thead>
                 <tr>
-                  <th>Nome do Credor</th>
+                  <th>Nome do Padrinho</th>
                   <th>E-mail (Login)</th>
                   <th>Cargo / Função</th>
                   <th>Padrinho Vinculado</th>
@@ -1474,7 +1474,7 @@
 <div id="modal-client-detail" class="modal-overlay hidden">
   <div class="modal-card large">
     <div class="modal-header">
-      <h3>👥 Detalhes Completos do Cliente</h3>
+      <h3>👥 Detalhes Completos do Afiliado</h3>
       <button class="modal-close" onclick="closeModal('modal-client-detail')">✕</button>
     </div>
     <div id="modal-client-detail-content" style="max-height: 75vh; overflow-y: auto; padding: 20px 10px;"></div>
@@ -1654,12 +1654,12 @@
 <div id="modal-add-creditor" class="modal-overlay hidden">
   <div class="modal-card">
     <div class="modal-header">
-      <h3>💼 Criar Conta de Credor</h3>
+      <h3>💼 Criar Conta de Padrinho</h3>
       <button class="modal-close" onclick="closeModal('modal-add-creditor')">✕</button>
     </div>
     <div class="modal-body" style="padding: 20px;">
       <div class="input-group">
-        <label>Nome do Credor (Empresa ou Pessoa)</label>
+        <label>Nome do Padrinho (Empresa ou Pessoa)</label>
         <input type="text" id="cred-nome" placeholder="Ex: Braga Empréstimos" />
       </div>
       <div class="input-group">
@@ -1704,7 +1704,7 @@
         <select id="dl-client-id" style="width:100%; padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;"></select>
       </div>
       <div class="input-group">
-        <label>Responsável pelo Caixa (Credor)</label>
+        <label>Responsável pelo Caixa (Padrinho)</label>
         <select id="dl-creditor-id" style="width:100%; padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;"></select>
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
