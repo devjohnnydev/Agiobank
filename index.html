@@ -1671,10 +1671,19 @@
       </div>
       <div class="input-group">
         <label>Modalidade</label>
-        <select id="dl-tipo" style="width:100%; padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;">
+        <select id="dl-tipo" onchange="handleDlTipoChange()" style="width:100%; padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;">
           <option value="convencional" selected>Parcelas Fixas (Francês/Tabela Fipe)</option>
           <option value="juros_mensais">Só Juros Mensais (Quita no Final)</option>
+          <option value="valor_fixo">Valor Fixo Manual (Ex: 3x de R$300)</option>
         </select>
+      </div>
+      <div class="input-group" id="dl-prazo-group">
+        <label id="dl-prazo-label">Prazo (parcelas)</label>
+        <input type="number" id="dl-prazo" placeholder="Ex: 12" style="padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;" />
+      </div>
+      <div class="input-group" id="dl-valor-parcela-group" style="display: none;">
+        <label>Valor de Cada Parcela (R$)</label>
+        <input type="number" id="dl-valor-parcela" placeholder="Ex: 300" style="padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;" />
       </div>
       <div class="input-group">
         <label>Frequência de Cobrança</label>

@@ -1387,6 +1387,31 @@ function loadPhotoFromFile(input) {
   reader.readAsDataURL(file);
 }
 
+window.handleDlTipoChange = function() {
+  const tipo = document.getElementById('dl-tipo').value;
+  const prazoGroup = document.getElementById('dl-prazo-group');
+  const prazoLabel = document.getElementById('dl-prazo-label');
+  const prazoInput = document.getElementById('dl-prazo');
+  const valorParcelaGroup = document.getElementById('dl-valor-parcela-group');
+
+  if (tipo === 'valor_fixo') {
+    if (prazoGroup) prazoGroup.style.display = 'block';
+    if (prazoLabel) prazoLabel.textContent = 'Quantidade de Parcelas';
+    if (prazoInput) prazoInput.placeholder = 'Ex: 3';
+    if (valorParcelaGroup) valorParcelaGroup.style.display = 'block';
+  } else if (tipo === 'convencional') {
+    if (prazoGroup) prazoGroup.style.display = 'block';
+    if (prazoLabel) prazoLabel.textContent = 'Prazo (parcelas)';
+    if (prazoInput) prazoInput.placeholder = 'Ex: 12';
+    if (valorParcelaGroup) valorParcelaGroup.style.display = 'none';
+  } else { // juros_mensais
+    if (prazoGroup) prazoGroup.style.display = 'block';
+    if (prazoLabel) prazoLabel.textContent = 'Previsão de Quitação (estimativa de ciclos)';
+    if (prazoInput) prazoInput.placeholder = 'Deixe em branco para sem prazo';
+    if (valorParcelaGroup) valorParcelaGroup.style.display = 'none';
+  }
+};
+
 function getNextFrequencyDate(baseDate, index, frequency) {
   const targetDate = new Date(baseDate);
   if (frequency === 'diario') {
@@ -2874,6 +2899,7 @@ window.openClientDetail = function(clientId) {
     if (!l.parcelas) return acc;
     return acc + l.parcelas.filter(p => p.status !== 'paid').reduce((a, p) => a + p.valor, 0);
   }, 0);
+  const totalPrincipal = activeL.concat(overdueL).reduce((acc, l) => acc + l.valor, 0);
 
   // Resolving photo (selfie)
   const selfieUrl = c.selfie || clientLoans.find(l => l.selfie)?.selfie;
@@ -2956,8 +2982,9 @@ window.openClientDetail = function(clientId) {
       <!-- Empréstimos -->
       <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
         <h4 style="margin-bottom: 12px; color: var(--green); border-bottom: 1px solid var(--border); padding-bottom: 6px;">💰 Histórico de Empréstimos</h4>
-        <div style="font-size: 14px; margin-bottom: 15px;">
-          Saldo Devedor Total: <strong style="color: var(--orange); font-size: 16px;">${formatMoney(totalDevendo)}</strong>
+        <div style="font-size: 14px; margin-bottom: 15px; display: flex; gap: 20px;">
+          <div>Saldo Devedor Total: <strong style="color: var(--orange); font-size: 16px;">${formatMoney(totalDevendo)}</strong></div>
+          <div>Capital na Mão: <strong style="color: var(--green); font-size: 16px;">${formatMoney(totalPrincipal)}</strong></div>
         </div>
         ${clientLoans.length ? `
           <div style="overflow-x: auto;">
@@ -4648,8 +4675,10 @@ window.openAddDirectLoanModal = function() {
   // Clear inputs
   document.getElementById('dl-valor').value = '';
   document.getElementById('dl-taxa').value = '10';
-  document.getElementById('dl-prazo').value = '3';
   document.getElementById('dl-tipo').value = 'convencional';
+  const dlValParcEl = document.getElementById('dl-valor-parcela');
+  if (dlValParcEl) dlValParcEl.value = '';
+  if (typeof handleDlTipoChange === 'function') handleDlTipoChange();
   document.getElementById('dl-vcto').value = getDefaultDate(30);
   document.getElementById('dl-garantia').value = '';
   document.getElementById('dl-com-agente').value = '';
@@ -4665,8 +4694,11 @@ window.saveDirectLoan = function() {
   const creditorId = document.getElementById('dl-creditor-id').value;
   const valor = parseFloat(document.getElementById('dl-valor').value);
   const taxa = parseFloat(document.getElementById('dl-taxa').value);
-  const prazo = 0;
   const tipo = document.getElementById('dl-tipo').value;
+  
+  const prazoVal = document.getElementById('dl-prazo')?.value || '';
+  const prazo = prazoVal === '' ? 0 : parseInt(prazoVal);
+  
   const frequencia = document.getElementById('dl-frequencia').value;
   const vcto = document.getElementById('dl-vcto').value;
   const garantia = document.getElementById('dl-garantia').value.trim();
@@ -4685,9 +4717,22 @@ window.saveDirectLoan = function() {
   // Generate parcelas
   let parcelas = [];
   let total = 0;
+  let jurosCalculado = taxa;
   const dataBase = new Date(vcto + 'T12:00:00');
 
-  if (tipo === 'convencional') {
+  if (tipo === 'valor_fixo') {
+    const valorParcela = parseFloat(document.getElementById('dl-valor-parcela').value);
+    if (prazo <= 0 || isNaN(valorParcela)) {
+      toast('Erro', 'Quantidade de parcelas e valor da parcela são obrigatórios para a modalidade Valor Fixo.', 'error');
+      return;
+    }
+    total = prazo * valorParcela;
+    jurosCalculado = parseFloat((((total - valor) / valor) * 100).toFixed(2));
+    for (let i = 1; i <= prazo; i++) {
+      const pVcto = getNextFrequencyDate(dataBase, i - 1, frequencia);
+      parcelas.push({ n: i, valor: valorParcela, vcto: pVcto.toISOString().split('T')[0], status: 'pending' });
+    }
+  } else if (tipo === 'convencional') {
     total = calcTotal(valor, taxa);
     const prazoValNum = prazo || 1;
     const parcelaVal = parseFloat((total / prazoValNum).toFixed(2));
@@ -4753,7 +4798,7 @@ window.saveDirectLoan = function() {
     motivo: 'Direto / Administrativo',
     descricao: 'Lançado diretamente no painel administrativo',
     status: 'active',
-    juros: taxa,
+    juros: jurosCalculado,
     tipoModalidade: tipo,
     totalComJuros: total,
     parcelas,
