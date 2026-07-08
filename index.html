@@ -535,16 +535,7 @@
               <label>De quanto você precisa?</label>
               <input type="text" id="lr-valor" placeholder="R$ 0,00" oninput="maskMoney(this); updateLoanPreview()" />
             </div>
-            <div class="input-group">
-              <label>Prazo de Pagamento</label>
-              <select id="lr-prazo" onchange="updateLoanPreview()">
-                <option value="1">1 mês</option>
-                <option value="2">2 meses</option>
-                <option value="3" selected>3 meses</option>
-                <option value="6">6 meses</option>
-                <option value="12">12 meses</option>
-              </select>
-            </div>
+
             <div class="input-group">
               <label>Motivo do Empréstimo</label>
               <select id="lr-motivo">
@@ -1479,6 +1470,10 @@
         <input type="number" id="edit-loan-taxa" step="0.5" />
       </div>
       <div class="input-group">
+        <label>Dia de Vencimento (1 a 31)</label>
+        <input type="number" id="edit-loan-dia-vencimento" min="1" max="31" placeholder="Ex: 5, 10, 28" />
+      </div>
+      <div class="input-group">
         <label>Status</label>
         <select id="edit-loan-status">
           <option value="pending">Pendente</option>
@@ -1662,18 +1657,12 @@
           <input type="number" id="dl-taxa" min="0" max="100" value="10" style="padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;" />
         </div>
       </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-        <div class="input-group">
-          <label>Prazo (meses) <span style="font-size:10px; color:var(--text-muted);">(em branco = recorrente)</span></label>
-          <input type="number" id="dl-prazo" placeholder="Recorrente (Sem prazo)" style="padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;" />
-        </div>
-        <div class="input-group">
-          <label>Modalidade</label>
-          <select id="dl-tipo" style="padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;">
-            <option value="convencional" selected>Parcelas Fixas (Francês/Tabela Fipe)</option>
-            <option value="juros_mensais">Só Juros Mensais (Quita no Final)</option>
-          </select>
-        </div>
+      <div class="input-group">
+        <label>Modalidade</label>
+        <select id="dl-tipo" style="width:100%; padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;">
+          <option value="convencional" selected>Parcelas Fixas (Francês/Tabela Fipe)</option>
+          <option value="juros_mensais">Só Juros Mensais (Quita no Final)</option>
+        </select>
       </div>
       <div class="input-group">
         <label>Vencimento da 1ª Parcela</label>

@@ -1408,7 +1408,7 @@ function submitLoanRequest() {
   if (!user) { toast('Erro', 'Faça login para continuar.', 'error'); return; }
 
   const rawValor = document.getElementById('lr-valor').value.replace(/[^0-9]/g, '') / 100;
-  const prazo    = parseInt(document.getElementById('lr-prazo').value);
+  const prazo    = 0;
   const motivo   = document.getElementById('lr-motivo').value;
   const desc     = document.getElementById('lr-desc').value;
   const settings = DB.settings;
@@ -1480,10 +1480,8 @@ function submitLoanRequest() {
 
 function updateLoanPreview() {
   const rawValor = document.getElementById('lr-valor').value.replace(/[^0-9]/g, '') / 100;
-  const prazo = parseInt(document.getElementById('lr-prazo').value) || 3;
-
   document.getElementById('prev-valor').textContent = formatMoney(rawValor || 0);
-  document.getElementById('prev-prazo').textContent = `${prazo} ${prazo === 1 ? 'mês' : 'meses'}`;
+  document.getElementById('prev-prazo').textContent = 'Recorrente (Sem prazo)';
 }
 
 // ══════════════════════════════════════
@@ -2970,7 +2968,7 @@ window.openClientDetail = function(clientId) {
                       <td>#${l.id}</td>
                       <td>${formatMoney(l.valor)}</td>
                       <td>${l.totalComJuros ? formatMoney(l.totalComJuros) : '—'}</td>
-                      <td>${l.prazo} meses</td>
+                      <td>${l.prazo ? l.prazo + ' meses' : 'Recorrente'}</td>
                       <td><span class="status-badge status-${l.status}">${statusLabel(l.status)}</span></td>
                       <td>${formatDate(l.createdAt)}</td>
                       <td><button class="btn-view" style="font-size: 10px; padding: 4px 8px;" onclick="closeModal('modal-client-detail'); openLoanDetail('${l.id}')">👁️ Detalhes</button></td>
@@ -4526,7 +4524,7 @@ window.selectCalendarDay = function(dateString) {
             <div class="vcto-client" style="font-weight:700;">${client ? client.nome : '—'}</div>
             <div class="vcto-phone" style="font-size:11px; color:var(--text-sec);">${client ? client.tel : '—'}</div>
           </div>
-          <div><label style="font-size:11px;color:var(--text-muted);display:block;">Parcela</label><span style="font-size:13px;font-weight:600;">${parcela.n}ª de ${loan.prazo}</span></div>
+          <div><label style="font-size:11px;color:var(--text-muted);display:block;">Parcela</label><span style="font-size:13px;font-weight:600;">${parcela.n}ª${loan.prazo ? ' de ' + loan.prazo : ' (Recorrente)'}</span></div>
           <div><label style="font-size:11px;color:var(--text-muted);display:block;">Valor</label><span style="font-size:13px;font-weight:700;color:var(--green);">${formatMoney(parcela.valor)}</span></div>
           <div>
             <label style="font-size:11px;color:var(--text-muted);display:block;">Status</label>
@@ -4652,8 +4650,7 @@ window.saveDirectLoan = function() {
   const creditorId = document.getElementById('dl-creditor-id').value;
   const valor = parseFloat(document.getElementById('dl-valor').value);
   const taxa = parseFloat(document.getElementById('dl-taxa').value);
-  const prazoVal = document.getElementById('dl-prazo').value;
-  const prazo = prazoVal === '' ? 0 : parseInt(prazoVal);
+  const prazo = 0;
   const tipo = document.getElementById('dl-tipo').value;
   const vcto = document.getElementById('dl-vcto').value;
   const garantia = document.getElementById('dl-garantia').value.trim();
@@ -4847,6 +4844,10 @@ window.editLoan = function(loanId) {
   document.getElementById('edit-loan-id').value = loanId;
   document.getElementById('edit-loan-valor').value = loan.valor;
   document.getElementById('edit-loan-taxa').value = loan.juros;
+  
+  const defaultDia = loan.diaVencimento || (loan.parcelas && loan.parcelas[0] ? new Date(loan.parcelas[0].vcto + 'T12:00:00').getDate() : 5);
+  document.getElementById('edit-loan-dia-vencimento').value = defaultDia;
+  
   document.getElementById('edit-loan-status').value = loan.status;
 
   document.getElementById('modal-edit-loan').classList.remove('hidden');
@@ -4856,10 +4857,11 @@ window.saveEditedLoan = function() {
   const id = document.getElementById('edit-loan-id').value;
   const valor = parseFloat(document.getElementById('edit-loan-valor').value);
   const taxa = parseFloat(document.getElementById('edit-loan-taxa').value);
+  const diaVencimento = parseInt(document.getElementById('edit-loan-dia-vencimento').value);
   const status = document.getElementById('edit-loan-status').value;
 
-  if (isNaN(valor) || isNaN(taxa)) {
-    toast('Erro', 'Preencha os valores corretamente.', 'error');
+  if (isNaN(valor) || isNaN(taxa) || isNaN(diaVencimento) || diaVencimento < 1 || diaVencimento > 31) {
+    toast('Erro', 'Preencha os valores corretamente. O dia de vencimento deve ser entre 1 e 31.', 'error');
     return;
   }
 
@@ -4869,6 +4871,7 @@ window.saveEditedLoan = function() {
     const loan = loans[idx];
     loan.valor = valor;
     loan.juros = taxa;
+    loan.diaVencimento = diaVencimento;
     loan.status = status;
 
     // Recalculate total with interest
@@ -4879,7 +4882,17 @@ window.saveEditedLoan = function() {
       if (loan.tipoModalidade === 'convencional') {
         const valParcela = loan.prazo > 0 ? total / loan.prazo : total;
         loan.parcelas.forEach(p => {
-          if (p.status !== 'paid') p.valor = valParcela;
+          if (p.status !== 'paid') {
+            p.valor = valParcela;
+            
+            // Ajusta o vencimento da parcela pendente para o novo dia
+            const currentVcto = new Date(p.vcto + 'T12:00:00');
+            currentVcto.setDate(1);
+            const daysInMonth = new Date(currentVcto.getFullYear(), currentVcto.getMonth() + 1, 0).getDate();
+            const finalDay = Math.min(diaVencimento, daysInMonth);
+            currentVcto.setDate(finalDay);
+            p.vcto = currentVcto.toISOString().split('T')[0];
+          }
         });
       } else {
         // juros_mensais
@@ -4891,6 +4904,14 @@ window.saveEditedLoan = function() {
             } else {
               p.valor = valJuros;
             }
+            
+            // Ajusta o vencimento da parcela pendente para o novo dia
+            const currentVcto = new Date(p.vcto + 'T12:00:00');
+            currentVcto.setDate(1);
+            const daysInMonth = new Date(currentVcto.getFullYear(), currentVcto.getMonth() + 1, 0).getDate();
+            const finalDay = Math.min(diaVencimento, daysInMonth);
+            currentVcto.setDate(finalDay);
+            p.vcto = currentVcto.toISOString().split('T')[0];
           }
         });
       }
