@@ -2291,11 +2291,9 @@ function approveWithRate(loanId, taxa, tipo = 'convencional', primeiroVcto = nul
       total = (jurosMensal * prazo) + l.valor;
       for (let i = 1; i <= prazo; i++) {
         const vcto = getInstallmentDate(dataBase, i - 1);
-        const isLast = i === prazo;
-        const val = isLast ? (l.valor + jurosMensal) : jurosMensal;
-        parcelas.push({ n: i, valor: val, vcto: vcto.toISOString().split('T')[0], status: 'pending' });
+        parcelas.push({ n: i, valor: jurosMensal, vcto: vcto.toISOString().split('T')[0], status: 'pending' });
       }
-      parcelaDesc = `${formatMoney(jurosMensal)}/mês`;
+      parcelaDesc = `${formatMoney(jurosMensal)}/mês (Estimado)`;
     }
   }
 
@@ -2644,7 +2642,7 @@ function markParcelaPaid(loanId, parcelaNum) {
   const loan = loans[idx];
   const prazo = loan.prazo ? parseInt(loan.prazo) : 0;
 
-  if (prazo === 0) {
+  if (prazo === 0 || loan.tipoModalidade === 'juros_mensais') {
     const nextPending = loan.parcelas.find(p => p.status !== 'paid');
     if (!nextPending) {
       const firstParcela = loan.parcelas.find(p => p.n === 1);
@@ -4749,9 +4747,7 @@ window.saveDirectLoan = function() {
       total = (jurosMensal * prazo) + valor;
       for (let i = 1; i <= prazo; i++) {
         const pVcto = getNextFrequencyDate(dataBase, i - 1, frequencia);
-        const isLast = i === prazo;
-        const val = isLast ? (valor + jurosMensal) : jurosMensal;
-        parcelas.push({ n: i, valor: val, vcto: pVcto.toISOString().split('T')[0], status: 'pending' });
+        parcelas.push({ n: i, valor: jurosMensal, vcto: pVcto.toISOString().split('T')[0], status: 'pending' });
       }
     }
   }
@@ -4948,6 +4944,8 @@ window.editLoan = function(loanId) {
   const pendingP = loan.parcelas ? loan.parcelas.find(p => p.status !== 'paid') : null;
   document.getElementById('edit-loan-vcto').value = pendingP ? pendingP.vcto : new Date().toISOString().split('T')[0];
   document.getElementById('edit-loan-frequencia').value = loan.frequencia || 'mensal';
+  document.getElementById('edit-loan-tipo').value = loan.tipoModalidade || 'convencional';
+  document.getElementById('edit-loan-prazo').value = loan.prazo !== undefined ? loan.prazo : 0;
   
   document.getElementById('edit-loan-status').value = loan.status;
 
@@ -4960,6 +4958,8 @@ window.saveEditedLoan = function() {
   const taxa = parseFloat(document.getElementById('edit-loan-taxa').value);
   const vcto = document.getElementById('edit-loan-vcto').value;
   const frequencia = document.getElementById('edit-loan-frequencia').value;
+  const tipo = document.getElementById('edit-loan-tipo').value;
+  const prazo = parseInt(document.getElementById('edit-loan-prazo').value) || 0;
   const status = document.getElementById('edit-loan-status').value;
 
   const baseDate = new Date(vcto + 'T12:00:00');
@@ -4977,6 +4977,8 @@ window.saveEditedLoan = function() {
     loan.juros = taxa;
     loan.diaVencimento = baseDate.getDate();
     loan.frequencia = frequencia;
+    loan.tipoModalidade = tipo;
+    loan.prazo = prazo;
     loan.status = status;
 
     // Recalculate total with interest
@@ -4993,15 +4995,16 @@ window.saveEditedLoan = function() {
           const targetVcto = getNextFrequencyDate(baseDate, idx, frequencia);
           p.vcto = targetVcto.toISOString().split('T')[0];
         });
-      } else {
-        // juros_mensais
-        const valJuros = valor * (taxa / 100);
+      } else if (loan.tipoModalidade === 'valor_fixo') {
         pendingParcelas.forEach((p, idx) => {
-          if (loan.prazo > 0 && p.n === loan.prazo) {
-            p.valor = valJuros + valor;
-          } else {
-            p.valor = valJuros;
-          }
+          const targetVcto = getNextFrequencyDate(baseDate, idx, frequencia);
+          p.vcto = targetVcto.toISOString().split('T')[0];
+        });
+      } else {
+        // juros_mensais - as parcelas de juros contêm apenas o valor do juros (recorrente)
+        const valJuros = parseFloat((valor * (taxa / 100)).toFixed(2));
+        pendingParcelas.forEach((p, idx) => {
+          p.valor = valJuros;
           const targetVcto = getNextFrequencyDate(baseDate, idx, frequencia);
           p.vcto = targetVcto.toISOString().split('T')[0];
         });
