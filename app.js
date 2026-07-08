@@ -1387,16 +1387,25 @@ function loadPhotoFromFile(input) {
   reader.readAsDataURL(file);
 }
 
+function getInstallmentDate(firstVctoDate, monthsToAdd) {
+  const targetDate = new Date(firstVctoDate);
+  const preferredDay = firstVctoDate.getDate();
+  
+  // Define o dia como 1 para evitar overflow de meses ao mudar de mês
+  targetDate.setDate(1);
+  targetDate.setMonth(targetDate.getMonth() + monthsToAdd);
+  
+  // Pega o número máximo de dias no mês de destino
+  const maxDays = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate();
+  
+  // Define o menor valor entre o dia preferido e a quantidade de dias no mês
+  targetDate.setDate(Math.min(preferredDay, maxDays));
+  return targetDate;
+}
+
 function submitLoanRequest() {
   const user = DB.currentUser;
   if (!user) { toast('Erro', 'Faça login para continuar.', 'error'); return; }
-
-  // Valida o limite de 2 empréstimos ativos simultâneos
-  const activeCount = DB.loans.filter(l => l.clientId === user.id && ['active', 'ativo', 'overdue', 'inadimplente', 'pending'].includes(l.status)).length;
-  if (activeCount >= 2) {
-    toast('Atenção', 'Afiliado já possui 2 empréstimos ativos', 'warning');
-    return;
-  }
 
   const rawValor = document.getElementById('lr-valor').value.replace(/[^0-9]/g, '') / 100;
   const prazo    = parseInt(document.getElementById('lr-prazo').value);
@@ -2224,6 +2233,7 @@ function approveWithRate(loanId, taxa, tipo = 'convencional', primeiroVcto = nul
   let parcelaDesc = '';
 
   const dataBase = primeiroVcto ? new Date(primeiroVcto + 'T12:00:00') : new Date(new Date().getTime() + 30 * 86400000);
+  l.diaVencimento = dataBase.getDate(); // salva dia preferido de vencimento
 
   const prazo = l.prazo ? parseInt(l.prazo) : 0;
 
@@ -2232,8 +2242,7 @@ function approveWithRate(loanId, taxa, tipo = 'convencional', primeiroVcto = nul
     const prazoVal = prazo || 1;
     const parcelaVal = parseFloat((total / prazoVal).toFixed(2));
     for (let i = 1; i <= prazoVal; i++) {
-      const vcto = new Date(dataBase);
-      vcto.setMonth(vcto.getMonth() + (i - 1));
+      const vcto = getInstallmentDate(dataBase, i - 1);
       parcelas.push({ n: i, valor: parcelaVal, vcto: vcto.toISOString().split('T')[0], status: 'pending' });
     }
     parcelaDesc = formatMoney(parcelaVal);
@@ -2246,8 +2255,7 @@ function approveWithRate(loanId, taxa, tipo = 'convencional', primeiroVcto = nul
     } else {
       total = (jurosMensal * prazo) + l.valor;
       for (let i = 1; i <= prazo; i++) {
-        const vcto = new Date(dataBase);
-        vcto.setMonth(vcto.getMonth() + (i - 1));
+        const vcto = getInstallmentDate(dataBase, i - 1);
         const isLast = i === prazo;
         const val = isLast ? (l.valor + jurosMensal) : jurosMensal;
         parcelas.push({ n: i, valor: val, vcto: vcto.toISOString().split('T')[0], status: 'pending' });
@@ -2603,13 +2611,12 @@ function markParcelaPaid(loanId, parcelaNum) {
   if (prazo === 0) {
     const nextPending = loan.parcelas.find(p => p.status !== 'paid');
     if (!nextPending) {
-      const lastParcela = loan.parcelas[loan.parcelas.length - 1];
-      const lastVcto = new Date(lastParcela.vcto + 'T12:00:00');
-      const nextVcto = new Date(lastVcto);
-      nextVcto.setMonth(nextVcto.getMonth() + 1);
+      const firstParcela = loan.parcelas.find(p => p.n === 1);
+      const firstVcto = new Date(firstParcela.vcto + 'T12:00:00');
+      const nextN = loan.parcelas.length + 1;
+      const nextVcto = getInstallmentDate(firstVcto, nextN - 1);
 
       const jurosMensal = parseFloat((loan.valor * (loan.juros / 100)).toFixed(2));
-      const nextN = lastParcela.n + 1;
 
       loan.parcelas.push({
         n: nextN,
@@ -4645,7 +4652,8 @@ window.saveDirectLoan = function() {
   const creditorId = document.getElementById('dl-creditor-id').value;
   const valor = parseFloat(document.getElementById('dl-valor').value);
   const taxa = parseFloat(document.getElementById('dl-taxa').value);
-  const prazo = parseInt(document.getElementById('dl-prazo').value);
+  const prazoVal = document.getElementById('dl-prazo').value;
+  const prazo = prazoVal === '' ? 0 : parseInt(prazoVal);
   const tipo = document.getElementById('dl-tipo').value;
   const vcto = document.getElementById('dl-vcto').value;
   const garantia = document.getElementById('dl-garantia').value.trim();
@@ -4661,13 +4669,6 @@ window.saveDirectLoan = function() {
     return;
   }
 
-  // Valida o limite de 2 empréstimos ativos simultâneos
-  const activeCount = DB.loans.filter(l => l.clientId === clientId && ['active', 'ativo', 'overdue', 'inadimplente', 'pending'].includes(l.status)).length;
-  if (activeCount >= 2) {
-    toast('Bloqueado', 'Afiliado já possui 2 empréstimos ativos', 'error');
-    return;
-  }
-
   // Generate parcelas
   let parcelas = [];
   let total = 0;
@@ -4675,21 +4676,25 @@ window.saveDirectLoan = function() {
 
   if (tipo === 'convencional') {
     total = calcTotal(valor, taxa);
-    const parcelaVal = parseFloat((total / prazo).toFixed(2));
-    for (let i = 1; i <= prazo; i++) {
-      const pVcto = new Date(dataBase);
-      pVcto.setMonth(pVcto.getMonth() + (i - 1));
+    const prazoValNum = prazo || 1;
+    const parcelaVal = parseFloat((total / prazoValNum).toFixed(2));
+    for (let i = 1; i <= prazoValNum; i++) {
+      const pVcto = getInstallmentDate(dataBase, i - 1);
       parcelas.push({ n: i, valor: parcelaVal, vcto: pVcto.toISOString().split('T')[0], status: 'pending' });
     }
   } else {
     const jurosMensal = parseFloat((valor * (taxa / 100)).toFixed(2));
-    total = (jurosMensal * prazo) + valor;
-    for (let i = 1; i <= prazo; i++) {
-      const pVcto = new Date(dataBase);
-      pVcto.setMonth(pVcto.getMonth() + (i - 1));
-      const isLast = i === prazo;
-      const val = isLast ? (valor + jurosMensal) : jurosMensal;
-      parcelas.push({ n: i, valor: val, vcto: pVcto.toISOString().split('T')[0], status: 'pending' });
+    if (prazo === 0) {
+      total = valor + jurosMensal;
+      parcelas.push({ n: 1, valor: jurosMensal, vcto: dataBase.toISOString().split('T')[0], status: 'pending' });
+    } else {
+      total = (jurosMensal * prazo) + valor;
+      for (let i = 1; i <= prazo; i++) {
+        const pVcto = getInstallmentDate(dataBase, i - 1);
+        const isLast = i === prazo;
+        const val = isLast ? (valor + jurosMensal) : jurosMensal;
+        parcelas.push({ n: i, valor: val, vcto: pVcto.toISOString().split('T')[0], status: 'pending' });
+      }
     }
   }
 
@@ -4730,6 +4735,7 @@ window.saveDirectLoan = function() {
     clientId,
     valor,
     prazo,
+    diaVencimento: dataBase.getDate(),
     motivo: 'Direto / Administrativo',
     descricao: 'Lançado diretamente no painel administrativo',
     status: 'active',

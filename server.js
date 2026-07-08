@@ -386,15 +386,6 @@ app.post('/api/emprestimos', async (req, res) => {
       return res.status(400).json({ error: 'afiliado_id ou cpf é obrigatório' });
     }
 
-    // Check active loan limit (max 2 active/overdue/inadimplente/pending)
-    const activeLoans = await pool.query(
-      "SELECT COUNT(*) FROM emprestimos WHERE afiliado_id = $1 AND status IN ('ativo', 'active', 'overdue', 'inadimplente')",
-      [finalAfiliadoId]
-    );
-
-    if (parseInt(activeLoans.rows[0].count) >= 2) {
-      return res.status(400).json({ error: 'Afiliado já possui 2 empréstimos ativos' });
-    }
 
     const id = 'l' + Date.now();
     const result = await pool.query(`

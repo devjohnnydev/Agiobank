@@ -52,7 +52,5 @@ INSERT INTO app_state_v2 (id, sms_history, settings)
 VALUES (1, '[]', '{}') 
 ON CONFLICT (id) DO NOTHING;
 
--- Garante o limite de 2 empréstimos ativos por afiliado via índice parcial
-CREATE INDEX IF NOT EXISTS idx_emprestimos_afiliado_ativo
-    ON emprestimos (afiliado_id)
-    WHERE status IN ('ativo', 'active', 'overdue', 'inadimplente');
+-- Remove o limite de 2 empréstimos ativos por afiliado
+DROP INDEX IF EXISTS idx_emprestimos_afiliado_ativo;

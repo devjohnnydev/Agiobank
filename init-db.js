@@ -79,11 +79,9 @@ async function initDB() {
       ON CONFLICT (id) DO NOTHING;
     `);
 
-    // 5. Índice de empréstimos ativos
+    // 5. Remover índice limitador de empréstimos ativos
     await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_emprestimos_afiliado_ativo
-      ON emprestimos (afiliado_id)
-      WHERE status IN ('ativo', 'active', 'overdue', 'inadimplente');
+      DROP INDEX IF EXISTS idx_emprestimos_afiliado_ativo;
     `);
 
     console.log('✅ Banco de dados pronto!');
