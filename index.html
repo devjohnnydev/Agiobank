@@ -487,9 +487,9 @@
               <div class="stat-value" id="cl-total-devendo">R$ 0,00</div>
             </div>
           </div>
-          <div class="stat-card purple" style="cursor:pointer;" onclick="contactPadrinho()">
-            <div class="stat-icon">💬</div>
-            <div class="stat-info">
+          <div class="stat-card purple" style="cursor:pointer; display:flex; align-items:center; gap:12px;" onclick="contactPadrinho()">
+            <img id="cl-padrinho-photo" src="" style="width:40px; height:40px; border-radius:50%; object-fit:cover; display:none; border:2px solid rgba(255,255,255,0.2);" />
+            <div style="flex:1;">
               <div class="stat-label">Suporte / Padrinho</div>
               <div class="stat-value" id="cl-padrinho-nome" style="font-size: 16px;">Falar no WhatsApp</div>
             </div>
@@ -682,7 +682,10 @@
           <!-- Header -->
           <div class="wa-chat-header" id="cl-chat-header-title">
             <div class="wa-chat-header-left">
-              <div class="wa-avatar">P</div>
+              <div class="wa-avatar" id="cl-chat-padrinho-avatar-container" style="display: flex; align-items: center; justify-content: center; overflow: hidden; width: 40px; height: 40px; border-radius: 50%; background: var(--navy-light);">
+                <img id="cl-chat-padrinho-avatar-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
+                <span id="cl-chat-padrinho-avatar-initial">P</span>
+              </div>
               <div class="wa-header-info">
                 <div class="wa-header-name" id="cl-chat-padrinho-name">Carregando...</div>
                 <div class="wa-header-status">● online</div>
@@ -1192,6 +1195,26 @@
             </div>
             <button class="btn-primary full" onclick="changeAdminPass()">Alterar Senha</button>
           </div>
+
+          <div class="settings-card" id="creditor-profile-card" style="display: none;">
+            <h3>👤 Perfil de Credor / Padrinho</h3>
+            <div class="input-group">
+              <label>Nome de Exibição</label>
+              <input type="text" id="cred-profile-nome" />
+            </div>
+            <div class="input-group">
+              <label>Foto de Perfil (URL ou Base64)</label>
+              <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
+                <input type="text" id="cred-profile-foto" placeholder="URL da foto..." style="flex:1;" />
+                <button type="button" class="btn-outline" style="padding:10px;" onclick="document.getElementById('cred-profile-file-input').click()">Upload</button>
+              </div>
+              <input type="file" id="cred-profile-file-input" style="display:none;" accept="image/*" onchange="uploadCreditorProfilePic(this)" />
+              <div style="text-align:center;">
+                <img id="cred-profile-preview" src="" style="max-width:100px; max-height:100px; border-radius:50%; display:none; margin:10px auto; border:2px solid var(--green);" />
+              </div>
+            </div>
+            <button class="btn-primary full" onclick="saveCreditorProfile()">💾 Salvar Perfil</button>
+          </div>
         </div>
       </section>
 
@@ -1268,7 +1291,10 @@
             <div class="wa-chat-header" id="chat-header-title">
               <div class="wa-chat-header-left">
                 <button class="wa-back-btn" id="wa-back-btn" onclick="showContactsPanel()" title="Voltar">‹</button>
-                <div class="wa-avatar" id="adm-chat-avatar">?</div>
+                <div class="wa-avatar" id="adm-chat-avatar-container" style="display: flex; align-items: center; justify-content: center; overflow: hidden; width: 40px; height: 40px; border-radius: 50%; background: var(--navy-light);">
+                  <img id="adm-chat-avatar-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
+                  <span id="adm-chat-avatar-initial">?</span>
+                </div>
                 <div class="wa-header-info">
                   <div class="wa-header-name">Selecione uma conversa</div>
                 </div>
@@ -1644,6 +1670,12 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
           </button>
         </div>
+      </div>
+      <div class="input-group">
+        <label>Quem te indicou? (Padrinho / Sponsor)</label>
+        <select id="cred-padrinho" style="width:100%; padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;">
+          <!-- Populated dynamically -->
+        </select>
       </div>
     </div>
     <div class="modal-footer">

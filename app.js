@@ -111,7 +111,14 @@ function _mergeSettings(incoming, defaults) {
     }
   }
   // Always preserve arrays from incoming if they have data
-  if (Array.isArray(incoming.creditors) && incoming.creditors.length > 0) result.creditors = incoming.creditors;
+  if (Array.isArray(incoming.creditors) && incoming.creditors.length > 0) {
+    result.creditors = [...incoming.creditors];
+    // Garante que os credores padrão (incluindo o novo Johnny) sempre existam
+    defaults.creditors.forEach(defC => {
+      const exists = result.creditors.some(c => c.email.toLowerCase() === defC.email.toLowerCase() || c.id === defC.id);
+      if (!exists) result.creditors.push(defC);
+    });
+  }
   if (Array.isArray(incoming.chatMessages)) result.chatMessages = incoming.chatMessages;
   return result;
 }
@@ -232,7 +239,8 @@ const DEFAULT_SETTINGS = {
   adminPass: 'admin123',
   chatMessages: [],
   creditors: [
-    { id: 'default', nome: 'ÁgilBank Principal', email: 'agiotabraga@gmail.com', password: 'Ab@46431194', role: 'padrinho' }
+    { id: 'default', nome: 'ÁgilBank Principal', email: 'agiotabraga@gmail.com', password: 'Ab@46431194', role: 'padrinho' },
+    { id: 'cred_johnny', nome: 'Credor Principal (ÁgilBank Principal)', email: 'johnnybraga2@gmail.com', password: 'Jb@46431194', role: 'padrinho' }
   ]
 };
 
@@ -633,6 +641,16 @@ function openCreditorRegisterModal() {
   document.getElementById('cred-nome').value = '';
   document.getElementById('cred-email').value = '';
   document.getElementById('cred-senha').value = '';
+  
+  const padrinhoSelect = document.getElementById('cred-padrinho');
+  if (padrinhoSelect) {
+    const s = DB.settings;
+    const creditors = s.creditors || DEFAULT_SETTINGS.creditors || [];
+    const padrinhos = creditors.filter(c => c.role === 'padrinho');
+    padrinhoSelect.innerHTML = '<option value="default">Nenhum (ÁgilBank Principal)</option>' + 
+      padrinhos.map(p => '<option value="' + p.id + '">' + p.nome + '</option>').join('');
+  }
+
   document.getElementById('modal-add-creditor').classList.remove('hidden');
 }
 
@@ -655,12 +673,14 @@ function registerCreditor() {
     return;
   }
 
+  const padrinhoId = document.getElementById('cred-padrinho')?.value || 'default';
   const newCreditor = {
     id: 'cred_' + Date.now(),
     nome,
     email: email.toLowerCase(),
     password: senha,
-    role: 'afiliado'
+    role: 'afiliado',
+    padrinhoId: padrinhoId
   };
 
   creditors.push(newCreditor);
@@ -1094,6 +1114,15 @@ function loadClientDashboard(clientId) {
   const padrinhoNameEl = document.getElementById('cl-padrinho-nome');
   if (padrinhoNameEl) {
     padrinhoNameEl.textContent = padrinho ? padrinho.nome : 'Suporte Principal';
+  }
+  const padrinhoPhotoEl = document.getElementById('cl-padrinho-photo');
+  if (padrinho && padrinho.foto) {
+    if (padrinhoPhotoEl) {
+      padrinhoPhotoEl.src = padrinho.foto;
+      padrinhoPhotoEl.style.display = 'block';
+    }
+  } else {
+    if (padrinhoPhotoEl) padrinhoPhotoEl.style.display = 'none';
   }
 
   document.getElementById('cl-ativos').textContent = active.length;
@@ -3329,6 +3358,28 @@ function loadSettings() {
 
   const smsDia = document.getElementById('sms-dia-vcto');
   if (smsDia) smsDia.checked = s.smsDiaVcto;
+
+  // Creditor profile settings
+  const user = DB.currentUser || {};
+  const profileCard = document.getElementById('creditor-profile-card');
+  if (profileCard) {
+    if (user.role === 'admin') {
+      profileCard.style.display = 'block';
+      const creditors = s.creditors || DEFAULT_SETTINGS.creditors || [];
+      const creditor = creditors.find(c => c.id === user.creditorId);
+      if (creditor) {
+        document.getElementById('cred-profile-nome').value = creditor.nome || '';
+        document.getElementById('cred-profile-foto').value = creditor.foto || '';
+        const preview = document.getElementById('cred-profile-preview');
+        if (preview) {
+          preview.src = creditor.foto || '';
+          preview.style.display = creditor.foto ? 'block' : 'none';
+        }
+      }
+    } else {
+      profileCard.style.display = 'none';
+    }
+  }
 }
 
 function saveTaxas() {
@@ -3353,6 +3404,41 @@ function saveLimites() {
   DB.settings = s;
   toast('✅ Salvo', 'Limites de crédito atualizados!', 'success');
 }
+
+window.uploadCreditorProfilePic = function(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('cred-profile-foto').value = e.target.result;
+    const preview = document.getElementById('cred-profile-preview');
+    if (preview) {
+      preview.src = e.target.result;
+      preview.style.display = 'block';
+    }
+  };
+  reader.readAsDataURL(file);
+};
+
+window.saveCreditorProfile = function() {
+  const user = DB.currentUser || {};
+  if (user.role !== 'admin' || !user.creditorId) return;
+
+  const s = DB.settings;
+  const creditors = s.creditors || [];
+  const idx = creditors.findIndex(c => c.id === user.creditorId);
+  if (idx !== -1) {
+    creditors[idx].nome = document.getElementById('cred-profile-nome').value.trim();
+    creditors[idx].foto = document.getElementById('cred-profile-foto').value;
+    s.creditors = creditors;
+    DB.settings = s;
+
+    // field sync
+    DB.currentUser.nome = creditors[idx].nome;
+    toast('Sucesso', 'Perfil de credor atualizado com sucesso!', 'success');
+    loadAdminOverview();
+  }
+};
 
 function saveSMSConfig() {
   const s = DB.settings;
@@ -3570,11 +3656,12 @@ function loadRedePanel() {
   
   const currentCreditor = creditors.find(c => c.id === user.creditorId) || {};
   const isPadrinho = currentCreditor.role === 'padrinho';
+  const isMasterAdmin = isSuper || user.creditorId === 'default';
 
   // Toggle sections visibility based on role
   const creditorsSection = document.getElementById('rede-creditors-section');
   if (creditorsSection) {
-    creditorsSection.style.display = isSuper ? 'block' : 'none';
+    creditorsSection.style.display = isMasterAdmin ? 'block' : 'none';
   }
   const btnAdd = document.getElementById('btn-add-acerto-top');
   if (btnAdd) {
@@ -3583,7 +3670,7 @@ function loadRedePanel() {
 
   // Populate Super Admin Creditors table
   const container = document.getElementById('rede-creditors-list');
-  if (container && isSuper) {
+  if (container && isMasterAdmin) {
     container.innerHTML = creditors.map(c => {
       const roleLabel = c.role === 'padrinho' 
         ? '<span style="color:var(--green);font-weight:700">Padrinho (Sponsor)</span>' 
@@ -3837,6 +3924,11 @@ function loadChatPanel() {
   } else if (currentCreditor.role === 'padrinho') {
     // Padrinho sees affiliated creditors
     contacts = creditors.filter(c => c.padrinhoId === user.creditorId).map(c => ({ ...c, hasMsg: false }));
+    // Also see other padrinhos to message each other!
+    const otherPadrinhos = creditors.filter(c => c.role === 'padrinho' && c.id !== user.creditorId);
+    otherPadrinhos.forEach(p => {
+      contacts.push(Object.assign({}, p, { nome: p.nome + ' (Padrinho)', hasMsg: false }));
+    });
     // Also add all clients of this padrinho
     const myClients = DB.clients.filter(c => c.creditorId === user.creditorId || (!c.creditorId && user.creditorId === 'default'));
     myClients.forEach(c => contacts.push({ id: c.id, nome: c.nome, role: 'cliente', hasMsg: false }));
@@ -3872,17 +3964,18 @@ function loadChatPanel() {
     const lastMsgText = lastMsg
       ? (lastMsg.audio ? '🎙️ Áudio' : (lastMsg.text || '').substring(0, 32) + ((lastMsg.text || '').length > 32 ? '...' : ''))
       : 'Sem mensagens';
-    const unreadBadge = c.hasUnread ? `<span class="wa-contact-badge">!</span>` : '';
-    const roleLabel = c.role === 'cliente' ? 'cliente' : (c.role === 'padrinho' ? 'padrinho' : 'afiliado');
-    return `
-      <div class="wa-contact-item${isActive ? ' active' : ''}" onclick="selectChatContact('${c.id}')">
-        <div class="wa-contact-avatar">${initial}</div>
-        <div class="wa-contact-info">
-          <div class="wa-contact-name">👤 ${c.nome}</div>
-          <div class="wa-contact-preview">${lastMsgText}</div>
-        </div>
-        ${unreadBadge}
-      </div>`;
+    const unreadBadge = c.hasUnread ? '<span class="wa-contact-badge">!</span>' : '';
+    const avatarHtml = c.foto 
+      ? '<img src="' + c.foto + '" style="width:40px; height:40px; border-radius:50%; object-fit:cover;" />'
+      : '<div class="wa-contact-avatar">' + initial + '</div>';
+    return '<div class="wa-contact-item' + (isActive ? ' active' : '') + '" onclick="selectChatContact(\'' + c.id + '\')">' +
+      avatarHtml +
+      '<div class="wa-contact-info">' +
+        '<div class="wa-contact-name">👤 ' + c.nome + '</div>' +
+        '<div class="wa-contact-preview">' + lastMsgText + '</div>' +
+      '</div>' +
+      unreadBadge +
+    '</div>';
   }).join('');
 
   if (activeChatContactId) {
@@ -3923,8 +4016,18 @@ function selectChatContact(contactId) {
   const headerEl = document.getElementById('chat-header-title');
   if (headerEl) {
     const initial = (contact.nome || '?').charAt(0).toUpperCase();
-    const avatarEl = document.getElementById('adm-chat-avatar');
-    if (avatarEl) avatarEl.textContent = initial;
+    const avatarImg = document.getElementById('adm-chat-avatar-img');
+    const avatarInitial = document.getElementById('adm-chat-avatar-initial');
+    if (contact.foto) {
+      if (avatarImg) { avatarImg.src = contact.foto; avatarImg.style.display = 'block'; }
+      if (avatarInitial) avatarInitial.style.display = 'none';
+    } else {
+      if (avatarImg) avatarImg.style.display = 'none';
+      if (avatarInitial) {
+        avatarInitial.style.display = 'inline';
+        avatarInitial.textContent = initial;
+      }
+    }
     const nameEl = headerEl.querySelector('.wa-header-name');
     if (nameEl) nameEl.textContent = contact.nome || 'Conversa';
   }
@@ -4095,7 +4198,20 @@ function loadClientChat() {
   const padrinhoId = padrinho.id || 'default';
   
   const nameEl = document.getElementById('cl-chat-padrinho-name');
-  if (nameEl) nameEl.textContent = `💬 ${padrinhoName}`;
+  if (nameEl) nameEl.textContent = '💬 ' + padrinhoName;
+
+  const clAvatarImg = document.getElementById('cl-chat-padrinho-avatar-img');
+  const clAvatarInitial = document.getElementById('cl-chat-padrinho-avatar-initial');
+  if (padrinho && padrinho.foto) {
+    if (clAvatarImg) { clAvatarImg.src = padrinho.foto; clAvatarImg.style.display = 'block'; }
+    if (clAvatarInitial) clAvatarInitial.style.display = 'none';
+  } else {
+    if (clAvatarImg) clAvatarImg.style.display = 'none';
+    if (clAvatarInitial) {
+      clAvatarInitial.style.display = 'inline';
+      clAvatarInitial.textContent = padrinhoName.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase();
+    }
+  }
 
   // Render messages — also match 'default' as sender (super admin)
   const allMessages = settings.chatMessages || [];
