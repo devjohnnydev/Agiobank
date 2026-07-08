@@ -503,7 +503,9 @@ body {
   display: flex;
   flex-direction: column;
   position: fixed;
-  height: 100vh;
+  top: 0;
+  bottom: 0;
+  height: 100dvh;
   overflow-y: auto;
   z-index: 100;
 }
@@ -575,7 +577,7 @@ body {
 
 .sidebar-footer {
   padding: 16px 12px;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border);
 }
 
