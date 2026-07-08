@@ -706,6 +706,10 @@ function populateCreditorsDropdowns() {
 }
 
 function logout() {
+  if (_syncTimeout) {
+    clearTimeout(_syncTimeout);
+    _pushState();
+  }
   DB.currentUser = null;
   sessionStorage.removeItem('ab_user');
   goTo('screen-login');
@@ -769,6 +773,8 @@ function registerClient() {
       if (creditorId) existing.creditorId = creditorId;
 
       DB.clients = clients; // trigger setter / sync
+      if (_syncTimeout) clearTimeout(_syncTimeout);
+      _pushState();
       DB.currentUser = { ...existing, role: 'client' };
       enterClient(existing);
       toast('Cadastro Ativado!', `Bem-vindo, ${nome.split(' ')[0]}! Seu cadastro pré-existente foi ativado. 🎉`, 'success');
@@ -793,7 +799,8 @@ function registerClient() {
 
   clients.push(newClient);
   DB.clients = clients;
-  DB.clients = clients;
+  if (_syncTimeout) clearTimeout(_syncTimeout);
+  _pushState();
 
   DB.currentUser = { ...newClient, role: 'client' };
   enterClient(newClient);
@@ -992,6 +999,8 @@ async function finishCompleteRegistration() {
     if (loanUpdated) {
       DB.loans = loans;
     }
+    if (_syncTimeout) clearTimeout(_syncTimeout);
+    _pushState();
 
     DB.currentUser = { ...clients[targetClientIndex], role: 'client' };
     window.clientToComplete = null;
@@ -1527,6 +1536,8 @@ function submitLoanRequest() {
   const loans = DB.loans;
   loans.push(newLoan);
   DB.loans = loans;
+  if (_syncTimeout) clearTimeout(_syncTimeout);
+  _pushState();
 
   document.getElementById('lr-valor').value = '';
   document.getElementById('lr-motivo').value = '';
@@ -3441,6 +3452,8 @@ window.saveCreditorProfile = function() {
     creditors[idx].foto = document.getElementById('cred-profile-foto').value;
     s.creditors = creditors;
     DB.settings = s;
+    if (_syncTimeout) clearTimeout(_syncTimeout);
+    _pushState();
 
     // field sync
     DB.currentUser.nome = creditors[idx].nome;
