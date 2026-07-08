@@ -4785,14 +4785,15 @@ window.editClient = function(clientId) {
   document.getElementById('add-cli-cpf').value = c.cpf || '';
   document.getElementById('add-cli-resp').value = c.responsavel || '';
 
-  // Exibe/Popula o dia de vencimento se houver empréstimo ativo/pendente
+  // Exibe/Popula a data de vencimento se houver empréstimo ativo/pendente
   const clientLoans = DB.loans.filter(l => l.clientId === clientId && ['active', 'ativo', 'overdue', 'inadimplente', 'pending'].includes(l.status));
   const activeLoan = clientLoans[0];
   const vctoGroupEl = document.getElementById('edit-cli-vcto-group');
   const vctoInputEl = document.getElementById('add-cli-vcto');
   if (activeLoan && vctoGroupEl && vctoInputEl) {
     vctoGroupEl.style.display = 'block';
-    vctoInputEl.value = activeLoan.diaVencimento || (activeLoan.parcelas && activeLoan.parcelas[0] ? new Date(activeLoan.parcelas[0].vcto + 'T12:00:00').getDate() : 5);
+    const pendingP = activeLoan.parcelas ? activeLoan.parcelas.find(p => p.status !== 'paid') : null;
+    vctoInputEl.value = pendingP ? pendingP.vcto : new Date().toISOString().split('T')[0];
   } else if (vctoGroupEl) {
     vctoGroupEl.style.display = 'none';
   }
@@ -4827,28 +4828,25 @@ window.saveEditedClient = function(clientId) {
     // Atualiza o vencimento se o campo estiver ativo/visível
     const vctoGroupEl = document.getElementById('edit-cli-vcto-group');
     const vctoInputEl = document.getElementById('add-cli-vcto');
-    if (vctoGroupEl && vctoGroupEl.style.display !== 'none' && vctoInputEl) {
-      const diaVencimento = parseInt(vctoInputEl.value);
-      if (!isNaN(diaVencimento) && diaVencimento >= 1 && diaVencimento <= 31) {
+    if (vctoGroupEl && vctoGroupEl.style.display !== 'none' && vctoInputEl && vctoInputEl.value) {
+      const vctoVal = vctoInputEl.value;
+      const baseDate = new Date(vctoVal + 'T12:00:00');
+      if (!isNaN(baseDate.getTime())) {
         const loans = DB.loans;
         const activeLoanIdx = loans.findIndex(l => l.clientId === clientId && ['active', 'ativo', 'overdue', 'inadimplente', 'pending'].includes(l.status));
         if (activeLoanIdx !== -1) {
           const loan = loans[activeLoanIdx];
-          loan.diaVencimento = diaVencimento;
+          loan.diaVencimento = baseDate.getDate();
           
           if (loan.parcelas && loan.parcelas.length > 0) {
-            loan.parcelas.forEach(p => {
-              if (p.status !== 'paid') {
-                const currentVcto = new Date(p.vcto + 'T12:00:00');
-                currentVcto.setDate(1);
-                const daysInMonth = new Date(currentVcto.getFullYear(), currentVcto.getMonth() + 1, 0).getDate();
-                const finalDay = Math.min(diaVencimento, daysInMonth);
-                currentVcto.setDate(finalDay);
-                p.vcto = currentVcto.toISOString().split('T')[0];
-              }
+            const pendingParcelas = loan.parcelas.filter(p => p.status !== 'paid');
+            pendingParcelas.forEach((p, idx) => {
+              const targetVcto = getInstallmentDate(baseDate, idx);
+              p.vcto = targetVcto.toISOString().split('T')[0];
             });
           }
           DB.loans = loans;
+          if (typeof renderCalendar === 'function') renderCalendar();
         }
       }
     }
@@ -4887,8 +4885,8 @@ window.editLoan = function(loanId) {
   document.getElementById('edit-loan-valor').value = loan.valor;
   document.getElementById('edit-loan-taxa').value = loan.juros;
   
-  const defaultDia = loan.diaVencimento || (loan.parcelas && loan.parcelas[0] ? new Date(loan.parcelas[0].vcto + 'T12:00:00').getDate() : 5);
-  document.getElementById('edit-loan-dia-vencimento').value = defaultDia;
+  const pendingP = loan.parcelas ? loan.parcelas.find(p => p.status !== 'paid') : null;
+  document.getElementById('edit-loan-vcto').value = pendingP ? pendingP.vcto : new Date().toISOString().split('T')[0];
   
   document.getElementById('edit-loan-status').value = loan.status;
 
@@ -4899,11 +4897,13 @@ window.saveEditedLoan = function() {
   const id = document.getElementById('edit-loan-id').value;
   const valor = parseFloat(document.getElementById('edit-loan-valor').value);
   const taxa = parseFloat(document.getElementById('edit-loan-taxa').value);
-  const diaVencimento = parseInt(document.getElementById('edit-loan-dia-vencimento').value);
+  const vcto = document.getElementById('edit-loan-vcto').value;
   const status = document.getElementById('edit-loan-status').value;
 
-  if (isNaN(valor) || isNaN(taxa) || isNaN(diaVencimento) || diaVencimento < 1 || diaVencimento > 31) {
-    toast('Erro', 'Preencha os valores corretamente. O dia de vencimento deve ser entre 1 e 31.', 'error');
+  const baseDate = new Date(vcto + 'T12:00:00');
+
+  if (isNaN(valor) || isNaN(taxa) || !vcto || isNaN(baseDate.getTime())) {
+    toast('Erro', 'Preencha os valores corretamente. A data de vencimento é obrigatória.', 'error');
     return;
   }
 
@@ -4913,7 +4913,7 @@ window.saveEditedLoan = function() {
     const loan = loans[idx];
     loan.valor = valor;
     loan.juros = taxa;
-    loan.diaVencimento = diaVencimento;
+    loan.diaVencimento = baseDate.getDate();
     loan.status = status;
 
     // Recalculate total with interest
@@ -4921,43 +4921,31 @@ window.saveEditedLoan = function() {
     loan.totalComJuros = total;
 
     if (loan.parcelas && loan.parcelas.length > 0) {
+      const pendingParcelas = loan.parcelas.filter(p => p.status !== 'paid');
+      
       if (loan.tipoModalidade === 'convencional') {
         const valParcela = loan.prazo > 0 ? total / loan.prazo : total;
-        loan.parcelas.forEach(p => {
-          if (p.status !== 'paid') {
-            p.valor = valParcela;
-            
-            // Ajusta o vencimento da parcela pendente para o novo dia
-            const currentVcto = new Date(p.vcto + 'T12:00:00');
-            currentVcto.setDate(1);
-            const daysInMonth = new Date(currentVcto.getFullYear(), currentVcto.getMonth() + 1, 0).getDate();
-            const finalDay = Math.min(diaVencimento, daysInMonth);
-            currentVcto.setDate(finalDay);
-            p.vcto = currentVcto.toISOString().split('T')[0];
-          }
+        pendingParcelas.forEach((p, idx) => {
+          p.valor = valParcela;
+          const targetVcto = getInstallmentDate(baseDate, idx);
+          p.vcto = targetVcto.toISOString().split('T')[0];
         });
       } else {
         // juros_mensais
         const valJuros = valor * (taxa / 100);
-        loan.parcelas.forEach(p => {
-          if (p.status !== 'paid') {
-            if (loan.prazo > 0 && p.n === loan.prazo) {
-              p.valor = valJuros + valor;
-            } else {
-              p.valor = valJuros;
-            }
-            
-            // Ajusta o vencimento da parcela pendente para o novo dia
-            const currentVcto = new Date(p.vcto + 'T12:00:00');
-            currentVcto.setDate(1);
-            const daysInMonth = new Date(currentVcto.getFullYear(), currentVcto.getMonth() + 1, 0).getDate();
-            const finalDay = Math.min(diaVencimento, daysInMonth);
-            currentVcto.setDate(finalDay);
-            p.vcto = currentVcto.toISOString().split('T')[0];
+        pendingParcelas.forEach((p, idx) => {
+          if (loan.prazo > 0 && p.n === loan.prazo) {
+            p.valor = valJuros + valor;
+          } else {
+            p.valor = valJuros;
           }
+          const targetVcto = getInstallmentDate(baseDate, idx);
+          p.vcto = targetVcto.toISOString().split('T')[0];
         });
       }
     }
+    DB.loans = loans;
+    if (typeof renderCalendar === 'function') renderCalendar();
 
     DB.loans = loans;
     closeModal('modal-edit-loan');

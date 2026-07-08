@@ -1419,8 +1419,8 @@
       <div class="input-group"><label>CPF</label><input type="text" id="add-cli-cpf" placeholder="000.000.000-00"></div>
       <div class="input-group"><label>Responsável</label><input type="text" id="add-cli-resp" placeholder="Ex: David Tubarão"></div>
       <div class="input-group" id="edit-cli-vcto-group" style="display: none;">
-        <label>Dia de Vencimento do Empréstimo (1 a 31)</label>
-        <input type="number" id="add-cli-vcto" min="1" max="31" placeholder="Ex: 5, 15, 28" />
+        <label>Data de Vencimento do Empréstimo</label>
+        <input type="date" id="add-cli-vcto" style="padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;" />
       </div>
       <hr style="margin:15px 0; border:1px solid var(--border);">
       <h4 style="margin-bottom:10px;">🛡️ Avalista / Fiador (Opcional)</h4>
@@ -1474,8 +1474,8 @@
         <input type="number" id="edit-loan-taxa" step="0.5" />
       </div>
       <div class="input-group">
-        <label>Dia de Vencimento (1 a 31)</label>
-        <input type="number" id="edit-loan-dia-vencimento" min="1" max="31" placeholder="Ex: 5, 10, 28" />
+        <label>Data de Vencimento da Próxima Parcela</label>
+        <input type="date" id="edit-loan-vcto" style="padding:10px; background:var(--navy); border:1px solid var(--border); color:var(--text-pri); border-radius:4px;" />
       </div>
       <div class="input-group">
         <label>Status</label>
