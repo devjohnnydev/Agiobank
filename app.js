@@ -3007,10 +3007,12 @@ window.openAdminAddClientModal = function() {
   saveBtn.textContent = 'Salvar Afiliado';
 
   // Clear fields
-  ['add-cli-nome','add-cli-tel','add-cli-cpf','add-cli-resp','add-cli-aval-nome','add-cli-aval-cpf','add-cli-aval-tel','add-cli-aval-renda'].forEach(id => {
+  ['add-cli-nome','add-cli-tel','add-cli-cpf','add-cli-resp','add-cli-aval-nome','add-cli-aval-cpf','add-cli-aval-tel','add-cli-aval-renda','add-cli-vcto'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  const vctoGroup = document.getElementById('edit-cli-vcto-group');
+  if (vctoGroup) vctoGroup.style.display = 'none';
   document.getElementById('modal-add-client').classList.remove('hidden');
 };
 
@@ -4783,6 +4785,18 @@ window.editClient = function(clientId) {
   document.getElementById('add-cli-cpf').value = c.cpf || '';
   document.getElementById('add-cli-resp').value = c.responsavel || '';
 
+  // Exibe/Popula o dia de vencimento se houver empréstimo ativo/pendente
+  const clientLoans = DB.loans.filter(l => l.clientId === clientId && ['active', 'ativo', 'overdue', 'inadimplente', 'pending'].includes(l.status));
+  const activeLoan = clientLoans[0];
+  const vctoGroupEl = document.getElementById('edit-cli-vcto-group');
+  const vctoInputEl = document.getElementById('add-cli-vcto');
+  if (activeLoan && vctoGroupEl && vctoInputEl) {
+    vctoGroupEl.style.display = 'block';
+    vctoInputEl.value = activeLoan.diaVencimento || (activeLoan.parcelas && activeLoan.parcelas[0] ? new Date(activeLoan.parcelas[0].vcto + 'T12:00:00').getDate() : 5);
+  } else if (vctoGroupEl) {
+    vctoGroupEl.style.display = 'none';
+  }
+
   const saveBtn = document.getElementById('btn-save-client');
   saveBtn.setAttribute('onclick', `saveEditedClient('${clientId}')`);
   saveBtn.textContent = 'Atualizar Afiliado';
@@ -4809,6 +4823,35 @@ window.saveEditedClient = function(clientId) {
     clients[idx].cpf = cpf;
     clients[idx].responsavel = responsavel;
     DB.clients = clients;
+
+    // Atualiza o vencimento se o campo estiver ativo/visível
+    const vctoGroupEl = document.getElementById('edit-cli-vcto-group');
+    const vctoInputEl = document.getElementById('add-cli-vcto');
+    if (vctoGroupEl && vctoGroupEl.style.display !== 'none' && vctoInputEl) {
+      const diaVencimento = parseInt(vctoInputEl.value);
+      if (!isNaN(diaVencimento) && diaVencimento >= 1 && diaVencimento <= 31) {
+        const loans = DB.loans;
+        const activeLoanIdx = loans.findIndex(l => l.clientId === clientId && ['active', 'ativo', 'overdue', 'inadimplente', 'pending'].includes(l.status));
+        if (activeLoanIdx !== -1) {
+          const loan = loans[activeLoanIdx];
+          loan.diaVencimento = diaVencimento;
+          
+          if (loan.parcelas && loan.parcelas.length > 0) {
+            loan.parcelas.forEach(p => {
+              if (p.status !== 'paid') {
+                const currentVcto = new Date(p.vcto + 'T12:00:00');
+                currentVcto.setDate(1);
+                const daysInMonth = new Date(currentVcto.getFullYear(), currentVcto.getMonth() + 1, 0).getDate();
+                const finalDay = Math.min(diaVencimento, daysInMonth);
+                currentVcto.setDate(finalDay);
+                p.vcto = currentVcto.toISOString().split('T')[0];
+              }
+            });
+          }
+          DB.loans = loans;
+        }
+      }
+    }
 
     closeModal('modal-add-client');
     toast('Sucesso', 'Afiliado atualizado com sucesso!', 'success');
