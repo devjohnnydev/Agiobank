@@ -91,6 +91,17 @@ async function initDB() {
       ON CONFLICT (id) DO NOTHING;
     `);
 
+    // Garantir que as colunas sejam de tipo JSONB (sem limite de tamanho)
+    try {
+      await pool.query(`ALTER TABLE app_state_v2 ALTER COLUMN settings TYPE JSONB USING settings::jsonb;`);
+      await pool.query(`ALTER TABLE app_state_v2 ALTER COLUMN sms_history TYPE JSONB USING sms_history::jsonb;`);
+      await pool.query(`ALTER TABLE afiliados ALTER COLUMN metadata TYPE JSONB USING metadata::jsonb;`);
+      await pool.query(`ALTER TABLE emprestimos ALTER COLUMN metadata TYPE JSONB USING metadata::jsonb;`);
+      console.log('✅ Colunas de estado e metadados garantidas como JSONB.');
+    } catch (e) {
+      console.warn('⚠️ Falha ao alterar tipo das colunas para JSONB:', e.message);
+    }
+
     // 5. Índice de empréstimos ativos
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_emprestimos_afiliado_ativo
