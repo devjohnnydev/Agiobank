@@ -4777,7 +4777,6 @@ window.editClient = function(clientId) {
   closeModal('modal-client-detail');
 
   document.getElementById('modal-add-client-title').textContent = '✏️ Editar Afiliado';
-  document.getElementById('add-client-loan-section').style.display = 'none';
 
   document.getElementById('add-cli-nome').value = c.nome;
   document.getElementById('add-cli-tel').value = c.tel || '';
